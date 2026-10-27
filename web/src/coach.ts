@@ -149,7 +149,12 @@ export async function weekBoard(week: string = weekKey(today())): Promise<{ week
   // Suggest the next workout in order that is not done and does not repeat yesterday's movement pattern.
   const yesterday = addDays(today(), -1);
   const recent = (await sessionsInWeek(weekKey(yesterday))).filter((s) => s.date === yesterday);
-  const avoid = new Set(recent.map((s) => PATTERN[s.template]));
+  // Sessions from the previous plan count too: an upper day covers push and pull, a lower day covers legs.
+  const covers: Record<string, string[] | undefined> = { upper: ['push', 'pull'], lower: ['legs'] };
+  const avoid = new Set<string | undefined>(recent.flatMap((s) => {
+    const p = PATTERN[s.template];
+    return p ? covers[p] ?? [p] : [];
+  }));
   const open = PROGRAM.suggestedOrder.map((k) => items.find((i) => i.template.key === k)!).filter((i) => i.status !== 'done');
   const inProgress = open.find((i) => i.status === 'in-progress' && i.session?.date === today());
   const pick = inProgress ?? open.find((i) => !avoid.has(PATTERN[i.template.key])) ?? open[0];
