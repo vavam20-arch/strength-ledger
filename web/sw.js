@@ -3,9 +3,28 @@
 const VERSION = '__VERSION__';
 const CACHE = `ledger-${VERSION}`;
 const FILES = __FILES__;
+const START = './';
+
+// Browsers refuse to show a redirected response to a page load, and Cloudflare redirects
+// /index.html to /. Store and serve plain copies only.
+async function plain(res) {
+  if (!res.redirected) return res;
+  return new Response(await res.blob(), { status: res.status, statusText: res.statusText, headers: res.headers });
+}
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(caches.open(CACHE).then((c) => c.addAll(FILES)));
+  event.waitUntil(
+    (async () => {
+      const cache = await caches.open(CACHE);
+      for (const f of FILES) {
+        const res = await fetch(new Request(f, { cache: 'reload' }));
+        if (!res.ok) throw new Error(`Could not cache ${f} (${res.status})`);
+        await cache.put(f, await plain(res));
+      }
+      // A new version takes over straight away; the page offers a reload.
+      await self.skipWaiting();
+    })(),
+  );
 });
 
 self.addEventListener('activate', (event) => {
@@ -22,15 +41,16 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
   if (event.request.method !== 'GET' || url.origin !== location.origin || url.pathname.startsWith('/api/')) return;
   event.respondWith(
-    caches.open(CACHE).then(async (cache) => {
-      const key = event.request.mode === 'navigate' ? './index.html' : event.request;
-      const hit = await cache.match(key, { ignoreSearch: true });
-      if (hit) return hit;
+    (async () => {
+      const cache = await caches.open(CACHE);
+      const navigate = event.request.mode === 'navigate';
+      const hit = await cache.match(navigate ? START : event.request, { ignoreSearch: true });
+      if (hit) return plain(hit);
       try {
-        return await fetch(event.request);
+        return await plain(await fetch(event.request));
       } catch {
-        return (await cache.match('./index.html')) ?? Response.error();
+        return (await cache.match(START)) ?? Response.error();
       }
-    }),
+    })(),
   );
 });

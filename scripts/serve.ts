@@ -22,6 +22,8 @@ export function startServer(port = 8787, setupCode = 'TEST-SETUP-CODE'): Promise
   const ASSETS = {
     fetch: async (req: Request): Promise<Response> => {
       let p = decodeURIComponent(new URL(req.url).pathname);
+      // Behave like Cloudflare's default html_handling: /index.html redirects to /.
+      if (p.endsWith('/index.html')) return new Response(null, { status: 307, headers: { location: p.slice(0, -'index.html'.length) } });
       if (p.endsWith('/')) p += 'index.html';
       const file = normalize(join(dist, p));
       if (!file.startsWith(dist) || !existsSync(file) || !statSync(file).isFile()) return new Response('Not found', { status: 404 });

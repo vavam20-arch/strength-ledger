@@ -44,7 +44,8 @@ for (const f of sources) {
 // 2. Static files.
 for (const f of ['index.html', 'styles.css', 'manifest.webmanifest']) {
   cpSync(join(root, 'web', f), join(dist, f));
-  files.push(`./${f}`);
+  // The start page is cached as ./ because Cloudflare redirects /index.html to /.
+  files.push(f === 'index.html' ? './' : `./${f}`);
 }
 mkdirSync(join(dist, 'icons'), { recursive: true });
 cpSync(join(root, 'web/icons/icon.svg'), join(dist, 'icons/icon.svg'));

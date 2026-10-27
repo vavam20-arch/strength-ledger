@@ -109,24 +109,13 @@ async function boot(): Promise<void> {
 
 function registerServiceWorker(): void {
   if (!('serviceWorker' in navigator)) return;
-  // The first install takes control without a reload; only a later update reloads the page.
+  // A new version activates by itself (the service worker skips waiting). The first install
+  // just takes control quietly; a later update offers a reload so the new code is used.
   const hadController = navigator.serviceWorker.controller != null;
-  navigator.serviceWorker.register('./sw.js').then((reg) => {
-    reg.addEventListener('updatefound', () => {
-      const sw = reg.installing;
-      sw?.addEventListener('statechange', () => {
-        if (sw.state === 'installed' && navigator.serviceWorker.controller) {
-          const bar = h('div', { class: 'update-bar', role: 'status' }, 'A new version is ready.', h('button', { type: 'button', class: 'btn small', onclick: () => sw.postMessage('skip-waiting') }, 'Update'));
-          document.body.append(bar);
-        }
-      });
-    });
-  }).catch(() => toast('Offline mode is unavailable in this browser.'));
-  let reloaded = false;
+  navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' }).catch(() => toast('Offline mode is unavailable in this browser.'));
   navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (reloaded || !hadController) return;
-    reloaded = true;
-    location.reload();
+    if (!hadController || document.querySelector('.update-bar')) return;
+    document.body.append(h('div', { class: 'update-bar', role: 'status' }, 'A new version is ready.', h('button', { type: 'button', class: 'btn small', onclick: () => location.reload() }, 'Update')));
   });
 }
 
