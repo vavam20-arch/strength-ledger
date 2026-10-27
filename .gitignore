@@ -1,0 +1,11 @@
+# Personal training data never goes into the repository.
+data/
+out/
+*.xlsx
+*.json.bak
+fit-build-log-*.json
+# Tooling
+node_modules/
+.wrangler/
+.dev.vars*
+.DS_Store
