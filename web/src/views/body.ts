@@ -4,6 +4,7 @@ import { fill, h, icon, toast } from '../ui.ts';
 import { measurements, save, type AppMeasurement } from '../store.ts';
 import { addDays, daysBetween, shortDate, today } from '../dates.ts';
 import { syncSoon } from '../sync-client.ts';
+import { strengthSection } from './strength.ts';
 
 const GOAL_LB = 205;
 
@@ -45,6 +46,7 @@ export async function renderBody(root: HTMLElement): Promise<void> {
       stat(`To ${GOAL_LB} lb`, weeksToGoal != null ? `~${Math.ceil(weeksToGoal)} weeks` : now7 != null ? `${(now7 - GOAL_LB).toFixed(1)} lb to go` : '—')),
     sparkline(weights.filter((w) => daysBetween(w.date, t) <= 120)),
     h('p', { class: 'note' }, `Target pace: about 1 lb a week (0.5% of bodyweight). The 7-day average smooths out day-to-day water changes.`),
+    await strengthSection(),
     tapeForm(all, root),
     h('h2', { class: 'section-title' }, 'Recent weigh-ins'),
     h('ul', { class: 'plain-list' }, weights.slice(-14).reverse().map((w) => h('li', null, h('span', null, shortDate(w.date)), h('span', { class: 'mono' }, `${w.lb} lb`)))),

@@ -4,6 +4,7 @@ import { fill, h, icon, toast } from '../ui.js';
 import { PROGRAM, weekBoard, workoutName,               } from '../coach.js';
 import { allSessions, measurements, save,                     } from '../store.js';
 import { addDays, daysBetween, shortDate, today, weekKey } from '../dates.js';
+import { cardioSheet, cardioThisWeek } from './cardio.js';
 
 export async function renderTrain(root             )                {
   const { week, items, suggestion } = await weekBoard();
@@ -14,6 +15,7 @@ export async function renderTrain(root             )                {
   const legacyOpen = (await allSessions()).filter((s) => s.status === 'open' && s.programId == null).sort((a, b) => b.date.localeCompare(a.date));
   const todayIso = today();
   const weighedToday = (await measurements()).some((m) => m.date === todayIso && m.bodyWeight != null);
+  const cardio = await cardioThisWeek();
 
   fill(root, 
     h(
@@ -35,6 +37,12 @@ export async function renderTrain(root             )                {
     weighedToday ? null : weighInCard(todayIso),
     h('h2', { class: 'section-title' }, 'This week'),
     h('ul', { class: 'week-list' }, items.map((i) => weekRow(i, i.template.key === suggestion))),
+    h('h2', { class: 'section-title' }, 'Cardio'),
+    h('div', { class: 'card cardio-card' },
+      h('div', { class: 'wr-main' },
+        h('strong', null, cardio.count ? `${cardio.count} session${cardio.count === 1 ? '' : 's'} · ${cardio.minutes} min this week` : 'No cardio logged this week'),
+        h('span', { class: 'muted' }, 'Incline walk, stair climber, bike…')),
+      h('button', { type: 'button', class: 'btn primary small', onclick: () => void cardioSheet({ onSaved: () => void renderTrain(root) }) }, icon('plus'), 'Log cardio')),
     legacyOpen.length
       ? [
           h('h2', { class: 'section-title' }, 'Open from your previous plan'),

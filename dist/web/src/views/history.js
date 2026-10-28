@@ -5,6 +5,7 @@ import { exerciseFor, workoutName } from '../coach.js';
 import { cardioBetween, getSession, remove, setsBetween, update,                             } from '../store.js';
 import { addDays, longDate, monthTitle, parseIso, today, toIso } from '../dates.js';
 import { syncSoon } from '../sync-client.js';
+import { cardioSheet, formatCardio } from './cardio.js';
 
 let month = today().slice(0, 7);
 let selected = today();
@@ -63,7 +64,6 @@ async function dayDetail(day        , sets          , cardio             , refre
   const box = h('section', { class: 'day-detail' }, h('h2', { class: 'section-title' }, longDate(day)));
   if (!sets.length && !cardio.length) {
     box.append(h('p', { class: 'muted' }, 'Nothing logged on this day.'));
-    return box;
   }
   const bySession = new Map                  ();
   for (const s of sets) bySession.set(s.sessionId, [...(bySession.get(s.sessionId) ?? []), s]);
@@ -81,8 +81,9 @@ async function dayDetail(day        , sets          , cardio             , refre
     box.append(card);
   }
   if (cardio.length) {
-    box.append(h('div', { class: 'card' }, h('h3', null, 'Cardio'), cardio.map((c) => h('p', { class: 'hist-row static' }, h('span', null, c.activity), h('span', { class: 'mono' }, `${c.durationMin} min${c.distance != null ? ` · ${c.distance} ${c.distanceUnit === 'steps' ? 'steps' : c.distanceUnit === 'mi' ? 'mi' : 'm'}` : ''}`)))));
+    box.append(h('div', { class: 'card' }, h('h3', null, 'Cardio'), cardio.map((c) => h('button', { type: 'button', class: 'hist-row', 'aria-label': `Edit ${c.activity}, ${formatCardio(c)}`, onclick: () => void cardioSheet({ existing: c, onSaved: refresh }) }, h('span', null, c.activity), h('span', { class: 'mono' }, formatCardio(c))))));
   }
+  if (day <= today()) box.append(h('button', { type: 'button', class: 'btn ghost small', onclick: () => void cardioSheet({ date: day, onSaved: refresh }) }, icon('plus'), 'Log cardio on this day'));
   return box;
 }
 

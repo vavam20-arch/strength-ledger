@@ -307,6 +307,57 @@ test('a new week starts empty on Monday', async () => {
   assert.match((await phone.locator('.page-head .muted').textContent()) ?? '', /^0 of 6 workouts done/);
 });
 
+test('cardio: log a stair climber session from Train, see it in History, then fix it', async () => {
+  await phone.goto(server.url + '/#train');
+  await phone.getByText('No cardio logged this week').waitFor();
+  await phone.getByRole('button', { name: 'Log cardio' }).click();
+  const sheet = phone.getByRole('dialog', { name: 'Log cardio' });
+  await sheet.getByRole('button', { name: 'Stair climber' }).click();
+  await sheet.getByText('steps', { exact: true }).waitFor();
+  const minutes = sheet.getByRole('textbox', { name: 'Minutes' });
+  await minutes.fill('20');
+  await minutes.press('Tab');
+  await sheet.getByRole('textbox', { name: 'Distance' }).fill('1,250');
+  assert.ok(await noSideScroll(phone), 'cardio sheet fits the screen');
+  await shot(phone, '09-cardio-sheet');
+  await sheet.getByRole('button', { name: 'Log cardio' }).click();
+  await phone.getByText('1 session · 20 min this week').waitFor();
+  const saved = (await allIn<{ activity: string; durationMin: number; distance: number; distanceUnit: string; date: string; source: string }>(phone, 'cardio')).filter((c) => c.source === 'app');
+  assert.deepEqual(saved.map((c) => [c.activity, c.durationMin, c.distance, c.distanceUnit, c.date]), [['Stair climber', 20, 1250, 'steps', '2026-11-09']]);
+
+  await phone.goto(server.url + '/#history');
+  const row = phone.getByRole('button', { name: /Edit Stair climber, 20 min · 1,250 steps/ });
+  await row.click();
+  const edit = phone.getByRole('dialog', { name: 'Edit cardio' });
+  const m2 = edit.getByRole('textbox', { name: 'Minutes' });
+  await m2.fill('25');
+  await m2.press('Tab');
+  await edit.getByRole('button', { name: 'Save changes' }).click();
+  await phone.getByRole('button', { name: /Edit Stair climber, 25 min/ }).waitFor();
+  const after = (await allIn<{ durationMin: number; source: string }>(phone, 'cardio')).filter((c) => c.source === 'app');
+  assert.deepEqual(after.map((c) => c.durationMin), [25]);
+});
+
+test('body tab shows a strength trend for each muscle group, priorities first', async (t) => {
+  if (!existsSync(FITBOD)) return t.skip('private exports not present');
+  await phone.goto(server.url + '/#body');
+  await phone.locator('.group-card').first().waitFor();
+  const names = await phone.locator('.group-card h3').allTextContents();
+  assert.deepEqual(names.map((n) => n.replace('Priority', '').trim()), ['Back', 'Delts', 'Chest', 'Arms', 'Legs']);
+  const changes = await phone.locator('.group-card .big').allTextContents();
+  assert.ok(changes.slice(0, 3).every((c) => /^[+-]?\d+\.\d%$/.test(c)), `changes: ${changes}`);
+  assert.ok(await noSideScroll(phone), 'body tab fits the screen');
+  await phone.locator('.group-card').first().locator('.ex-list summary').click();
+  await shot(phone, '10-strength-6mo');
+  await phone.getByRole('button', { name: '1 yr' }).click();
+  await phone.getByText(/How much stronger each area is than Nov/).waitFor();
+  await phone.getByRole('button', { name: '3 mo' }).click();
+  await phone.waitForFunction(() => document.querySelector('.strength-head .seg.on')?.textContent === '3 mo');
+  const box = await phone.locator('.trend svg').first().boundingBox();
+  await phone.mouse.click(box!.x + box!.width * 0.5, box!.y + box!.height / 2);
+  assert.match((await phone.locator('.readout').first().textContent()) ?? '', /–.*: \d+\.\d/);
+});
+
 test('no errors in the browser console', () => {
   assert.deepEqual(errors, []);
 });
