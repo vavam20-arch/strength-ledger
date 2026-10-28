@@ -5,13 +5,20 @@ import type { Exercise, Exposure, Slot } from '../../src/model.ts';
 import { buildExercise, slugify } from '../../src/import/catalog.ts';
 import { USER_DECISIONS } from '../../src/decisions.ts';
 import { BLOCK_1, EXERCISE_NAMES, LEGACY_WORKOUTS, PATTERN, type Program, type WorkoutTemplate } from '../../src/program/block1.ts';
-import { getSession, latestBodyweight, sessionsInWeek, setsBetween, setsForExercise, setsForSession, type AppSession, type AppSet, type TargetInfo } from './store.ts';
+import { bus, getSession, latestBodyweight, sessionsInWeek, setsBetween, setsForExercise, setsForSession, type AppSession, type AppSet, type TargetInfo } from './store.ts';
 import { addDays, today, weekKey } from './dates.ts';
 
 export const PROGRAM: Program = BLOCK_1;
 
 export const workoutByKey = (key: string): WorkoutTemplate | undefined => PROGRAM.workouts.find((w) => w.key === key);
 export const workoutName = (key: string): string => workoutByKey(key)?.name ?? LEGACY_WORKOUTS[key] ?? key;
+
+/** Weight-plate color family for a workout: Push red, Pull blue, Legs yellow; anything else steel. */
+export type Plate = 'push' | 'pull' | 'legs' | 'steel';
+export const plateOf = (template: string): Plate => {
+  const p = PATTERN[template];
+  return p === 'push' || p === 'pull' || p === 'legs' ? p : 'steel';
+};
 
 export function exerciseName(id: string, fallback?: string): string {
   if (EXERCISE_NAMES[id]) return EXERCISE_NAMES[id]!;
@@ -38,6 +45,9 @@ export async function exerciseFor(id: string, nameHint?: string): Promise<Exerci
 export const forgetExercise = (id: string): void => {
   exerciseCache.delete(id);
 };
+// Equipment and load type are inferred from logged weights, so recompute after any change
+// (an import, a sync from the other device, or a new set).
+bus.addEventListener('change', () => exerciseCache.clear());
 
 // ---------- history → exposures ----------
 async function exposuresFor(exerciseId: string, excludeSession?: string): Promise<{ exposures: Exposure[]; sessions: Map<string, AppSession> }> {

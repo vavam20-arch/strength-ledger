@@ -1,7 +1,7 @@
 // History tab: month calendar; pick a day to see its workouts and sets; tap an exercise to correct its sets.
 
 import { fill, fmtNum, h, icon, sheet, stepper, toast } from '../ui.ts';
-import { exerciseFor, workoutName } from '../coach.ts';
+import { exerciseFor, plateOf, workoutName, type Plate } from '../coach.ts';
 import { cardioBetween, getSession, remove, setsBetween, update, type AppCardio, type AppSet } from '../store.ts';
 import { addDays, longDate, monthTitle, parseIso, today, toIso } from '../dates.ts';
 import { syncSoon } from '../sync-client.ts';
@@ -16,9 +16,16 @@ export async function renderHistory(root: HTMLElement): Promise<void> {
   const last = toIso(new Date(d.getFullYear(), d.getMonth() + 1, 0, 12));
   const sets = (await setsBetween(first, last)).filter((s) => s.completed && s.kind !== 'warmup');
   const cardio = await cardioBetween(first, last);
-  const byDay = new Map<string, { sets: number; cardio: number }>();
-  for (const s of sets) byDay.set(s.performedDate, { sets: (byDay.get(s.performedDate)?.sets ?? 0) + 1, cardio: byDay.get(s.performedDate)?.cardio ?? 0 });
-  for (const c of cardio) byDay.set(c.date, { sets: byDay.get(c.date)?.sets ?? 0, cardio: (byDay.get(c.date)?.cardio ?? 0) + 1 });
+  const byDay = new Map<string, { sets: number; cardio: number; plates: Set<Plate> }>();
+  const dayOf = (d: string) => byDay.get(d) ?? (byDay.set(d, { sets: 0, cardio: 0, plates: new Set() }), byDay.get(d)!);
+  const templates = new Map<string, string>();
+  await Promise.all([...new Set(sets.map((s) => s.sessionId))].map(async (id) => templates.set(id, (await getSession(id))?.template ?? '')));
+  for (const s of sets) {
+    const d = dayOf(s.performedDate);
+    d.sets++;
+    d.plates.add(plateOf(templates.get(s.sessionId) ?? ''));
+  }
+  for (const c of cardio) dayOf(c.date).cardio++;
 
   const lead = (d.getDay() + 6) % 7;
   const cells: HTMLElement[] = ['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((x, i) => h('span', { class: 'dow', 'aria-hidden': 'true', key: i }, x));
@@ -38,7 +45,7 @@ export async function renderHistory(root: HTMLElement): Promise<void> {
         },
       },
       String(Number(day.slice(8))),
-      h('span', { class: 'dots' }, info?.sets ? h('i', { class: 'dot lift' }) : null, info?.cardio ? h('i', { class: 'dot cardio' }) : null)),
+      h('span', { class: 'dots' }, [...(info?.plates ?? [])].slice(0, 2).map((p) => h('i', { class: 'dot', 'data-plate': p })), info?.cardio ? h('i', { class: 'dot', 'data-plate': 'cardio' }) : null)),
     );
   }
   const shift = (n: number) => {
@@ -69,7 +76,7 @@ async function dayDetail(day: string, sets: AppSet[], cardio: AppCardio[], refre
   for (const s of sets) bySession.set(s.sessionId, [...(bySession.get(s.sessionId) ?? []), s]);
   for (const [sid, list] of bySession) {
     const sess = await getSession(sid);
-    const card = h('div', { class: 'card' }, h('h3', null, sess ? workoutName(sess.template) : 'Workout', sess?.source && sess.source !== 'app' ? h('span', { class: 'muted' }, sess.source === 'fitbod' ? ' · Fitbod' : ' · earlier app') : null));
+    const card = h('div', { class: 'card day-card', 'data-plate': plateOf(sess?.template ?? '') }, h('h3', null, sess ? workoutName(sess.template) : 'Workout', sess?.source && sess.source !== 'app' ? h('span', { class: 'muted' }, sess.source === 'fitbod' ? ' · Fitbod' : ' · earlier app') : null));
     const byEx = new Map<string, AppSet[]>();
     for (const s of list.sort((a, b) => a.order - b.order)) byEx.set(s.exerciseId, [...(byEx.get(s.exerciseId) ?? []), s]);
     for (const [exId, xs] of byEx) {

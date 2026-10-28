@@ -1,9 +1,10 @@
 // Strength Ledger service worker: keeps the app usable with no signal.
 // The build fills in the version and the offline file list.
-const VERSION = 'db0940ae0c';
+const VERSION = 'e7a565bdae';
 const CACHE = `ledger-${VERSION}`;
 const FILES = [
  "./",
+ "./fonts/big-shoulders-bold.woff",
  "./icons/icon-180.png",
  "./icons/icon-192.png",
  "./icons/icon-512.png",

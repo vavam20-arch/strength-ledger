@@ -5,13 +5,20 @@ import { EMPTY_STATE, evaluate, recommend,                                 } fro
 import { buildExercise, slugify } from '../../src/import/catalog.js';
 import { USER_DECISIONS } from '../../src/decisions.js';
 import { BLOCK_1, EXERCISE_NAMES, LEGACY_WORKOUTS, PATTERN,                                    } from '../../src/program/block1.js';
-import { getSession, latestBodyweight, sessionsInWeek, setsBetween, setsForExercise, setsForSession,                                               } from './store.js';
+import { bus, getSession, latestBodyweight, sessionsInWeek, setsBetween, setsForExercise, setsForSession,                                               } from './store.js';
 import { addDays, today, weekKey } from './dates.js';
 
 export const PROGRAM          = BLOCK_1;
 
 export const workoutByKey = (key        )                              => PROGRAM.workouts.find((w) => w.key === key);
 export const workoutName = (key        )         => workoutByKey(key)?.name ?? LEGACY_WORKOUTS[key] ?? key;
+
+/** Weight-plate color family for a workout: Push red, Pull blue, Legs yellow; anything else steel. */
+                                                       
+export const plateOf = (template        )        => {
+  const p = PATTERN[template];
+  return p === 'push' || p === 'pull' || p === 'legs' ? p : 'steel';
+};
 
 export function exerciseName(id        , fallback         )         {
   if (EXERCISE_NAMES[id]) return EXERCISE_NAMES[id] ;
@@ -38,6 +45,9 @@ export async function exerciseFor(id        , nameHint         )                
 export const forgetExercise = (id        )       => {
   exerciseCache.delete(id);
 };
+// Equipment and load type are inferred from logged weights, so recompute after any change
+// (an import, a sync from the other device, or a new set).
+bus.addEventListener('change', () => exerciseCache.clear());
 
 // ---------- history → exposures ----------
 async function exposuresFor(exerciseId        , excludeSession         )                                                                        {

@@ -2,7 +2,7 @@
 // catch-up date, finish/reopen. Every tap is saved on the device before the screen shows it as saved.
 
 import { clear, fill, fmtNum, h, icon, sheet, stepper, toast } from '../ui.ts';
-import { exerciseFor, exerciseName, PROGRAM, sessionSlots, slotsFromSets, targetFor, workoutByKey, workoutName } from '../coach.ts';
+import { exerciseFor, exerciseName, plateOf, PROGRAM, sessionSlots, slotsFromSets, targetFor, workoutByKey, workoutName } from '../coach.ts';
 import { getSession, pendingIds, save, setsForSession, update, type AppSession, type AppSet, type TargetInfo } from '../store.ts';
 import { longDate, relativeDay, today, weekKey } from '../dates.ts';
 import { MUSCLES, slugify } from '../../../src/import/catalog.ts';
@@ -100,10 +100,10 @@ export async function renderWorkout(root: HTMLElement, id: string): Promise<void
 
   const header = h(
     'header',
-    { class: 'page-head workout-head' },
+    { class: 'page-head workout-head', 'data-plate': plateOf(sess.template) },
     h('a', { class: 'back', href: '#train' }, icon('back'), 'Week'),
-    h('p', { class: 'eyebrow' }, isProgram ? tmpl?.focus ?? '' : 'From your previous plan'),
     h('h1', null, workoutName(sess.template)),
+    h('p', { class: 'muted workout-focus' }, isProgram ? tmpl?.focus ?? '' : 'From your previous plan'),
     h('label', { class: 'log-date' }, h('span', null, 'Logging for'), h('strong', null, relativeDay(logDate)), dateInput),
     logDate !== today() ? h('p', { class: 'note' }, `Catch-up mode: new sets are dated ${longDate(logDate)}.`) : null,
     sess.status === 'finished' ? h('p', { class: 'chip good' }, 'Finished · you can still add or fix sets') : null,
@@ -221,8 +221,8 @@ async function slotCard(
   }
 
   const remaining = Math.max(0, planned - work.filter((s) => s.completed).length - (work.length - work.filter((s) => s.completed).length));
-  const targetLine = target?.weight != null || bw
-    ? `${bw ? '' : `${fmtLoad(ex, target?.weight ?? 0)} × `}${repsText(target?.reps ?? [])}`
+  const targetLine = target && (target.weight != null || bw) && target.reps.length
+    ? bw ? `${repsText(target?.reps ?? [])} reps` : `${fmtLoad(ex, target?.weight ?? 0)} × ${repsText(target?.reps ?? [])}`
     : null;
   const doneAsPlanned = remaining > 0 && target && (target.weight != null || bw)
     ? h('button', { type: 'button', class: 'btn small', onclick: async () => {
@@ -243,15 +243,15 @@ async function slotCard(
 
   return h(
     'section',
-    { class: 'card slot', 'aria-label': ex.name },
+    { class: 'card slot', 'aria-label': ex.name, 'data-plate': plateOf(sess.template) },
     h('div', { class: 'slot-head' },
       h('div', { class: 'slot-title' },
         h('h2', null, ex.name),
         h('p', { class: 'slot-plan' },
-          isProgram ? `${slot.sets} × ${slot.repMin}–${slot.repMax}` : 'Logged before',
-          targetLine ? h('span', { class: 'target' }, ` · Target ${targetLine}`) : null,
+          isProgram ? `${slot.sets} sets of ${slot.repMin}–${slot.repMax}` : 'Logged before',
           target ? h('span', { class: `chip ${toneFor(target.decision)}` }, DECISION_LABEL[target.decision] ?? target.decision) : null)),
       actions),
+    targetLine ? h('p', { class: 'target-row' }, h('span', { class: 'target-label' }, 'Target'), h('span', { class: 'target' }, targetLine)) : null,
     why,
     h('div', { class: 'set-head', 'aria-hidden': 'true' }, h('span', null, 'Set'), h('span', null, bw ? '' : ex.loadType === 'assisted' ? 'Assist (lb)' : 'Weight (lb)'), h('span', null, 'Reps'), h('span', null, '')),
     h('div', { class: 'sets' }, rows),

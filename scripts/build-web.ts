@@ -47,6 +47,11 @@ for (const f of ['index.html', 'styles.css', 'manifest.webmanifest']) {
   // The start page is cached as ./ because Cloudflare redirects /index.html to /.
   files.push(f === 'index.html' ? './' : `./${f}`);
 }
+mkdirSync(join(dist, 'fonts'), { recursive: true });
+for (const f of readdirSync(join(root, 'web/fonts'))) {
+  cpSync(join(root, 'web/fonts', f), join(dist, 'fonts', f));
+  if (f.endsWith('.woff')) files.push(`./fonts/${f}`);
+}
 mkdirSync(join(dist, 'icons'), { recursive: true });
 cpSync(join(root, 'web/icons/icon.svg'), join(dist, 'icons/icon.svg'));
 files.push('./icons/icon.svg');

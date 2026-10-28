@@ -281,6 +281,9 @@ test('the earlier app’s open Upper B is listed so it can be finished', async (
   await phone.locator('.week-row', { hasText: 'Open' }).first().click();
   await phone.waitForSelector('.slot');
   await shot(phone, '07-legacy-open');
+  // Imported weights make the chest press a loaded exercise, even if it was first shown before the import arrived.
+  assert.equal(await phone.locator('.slot', { hasText: 'Seated Chest Press' }).getByText('Bodyweight').count(), 0);
+  assert.equal(await phone.locator('.slot', { hasText: 'Seated Chest Press' }).getByRole('textbox', { name: 'Set 1 weight' }).inputValue(), '170');
   await phone.getByRole('button', { name: 'Finish workout' }).click();
   await phone.waitForFunction(() => location.hash === '#train');
   assert.equal(await phone.getByText('Open from your previous plan').count(), 0);
@@ -289,6 +292,11 @@ test('the earlier app’s open Upper B is listed so it can be finished', async (
 test('targets on a new workout use the imported history', async (t) => {
   if (!existsSync(FITBOD)) return t.skip('private exports not present');
   await phone.goto(server.url + '/#train');
+  await phone.locator('.barbell').waitFor();
+  await shot(phone, '07b-train-progress');
+  await phone.emulateMedia({ colorScheme: 'dark' });
+  await shot(phone, '07c-train-dark');
+  await phone.emulateMedia({ colorScheme: 'light' });
   const row = phone.locator('.week-row').filter({ hasNotText: /Done|\d+\/\d+/ }).first();
   await row.click();
   await phone.waitForSelector('.slot');
@@ -304,7 +312,7 @@ test('a new week starts empty on Monday', async () => {
   await phone.reload();
   await phone.waitForSelector('h1');
   assert.match((await phone.locator('h1').textContent()) ?? '', /Week of Nov 9/);
-  assert.match((await phone.locator('.page-head .muted').textContent()) ?? '', /^0 of 6 workouts done/);
+  assert.match((await phone.locator('.page-head .muted').textContent()) ?? '', /^0 of 6 done/);
 });
 
 test('cardio: log a stair climber session from Train, see it in History, then fix it', async () => {
@@ -321,7 +329,7 @@ test('cardio: log a stair climber session from Train, see it in History, then fi
   assert.ok(await noSideScroll(phone), 'cardio sheet fits the screen');
   await shot(phone, '09-cardio-sheet');
   await sheet.getByRole('button', { name: 'Log cardio' }).click();
-  await phone.getByText('1 session · 20 min this week').waitFor();
+  await phone.getByText('1 session, 20 min this week').waitFor();
   const saved = (await allIn<{ activity: string; durationMin: number; distance: number; distanceUnit: string; date: string; source: string }>(phone, 'cardio')).filter((c) => c.source === 'app');
   assert.deepEqual(saved.map((c) => [c.activity, c.durationMin, c.distance, c.distanceUnit, c.date]), [['Stair climber', 20, 1250, 'steps', '2026-11-09']]);
 
