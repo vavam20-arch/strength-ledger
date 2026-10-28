@@ -5,7 +5,7 @@ import { EMPTY_STATE, evaluate, recommend,                                 } fro
 import { buildExercise, slugify } from '../../src/import/catalog.js';
 import { USER_DECISIONS } from '../../src/decisions.js';
 import { BLOCK_1, EXERCISE_NAMES, LEGACY_WORKOUTS, PATTERN,                                    } from '../../src/program/block1.js';
-import { getSession, latestBodyweight, sessionsInWeek, setsForExercise, setsForSession,                                               } from './store.js';
+import { getSession, latestBodyweight, sessionsInWeek, setsBetween, setsForExercise, setsForSession,                                               } from './store.js';
 import { addDays, today, weekKey } from './dates.js';
 
 export const PROGRAM          = BLOCK_1;
@@ -148,7 +148,9 @@ export async function weekBoard(week         = weekKey(today()))                
   }
   // Suggest the next workout in order that is not done and does not repeat yesterday's movement pattern.
   const yesterday = addDays(today(), -1);
-  const recent = (await sessionsInWeek(weekKey(yesterday))).filter((s) => s.date === yesterday);
+  // What was actually trained yesterday: workouts with sets logged on that day (opening one to look doesn't count).
+  const ySets = (await setsBetween(yesterday, yesterday)).filter((s) => s.completed && s.kind !== 'warmup');
+  const recent = (await Promise.all([...new Set(ySets.map((s) => s.sessionId))].map((id) => getSession(id)))).filter((s)                  => !!s);
   // Sessions from the previous plan count too: an upper day covers push and pull, a lower day covers legs.
   const covers                                       = { upper: ['push', 'pull'], lower: ['legs'] };
   const avoid = new Set                    (recent.flatMap((s) => {

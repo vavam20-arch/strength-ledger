@@ -5,7 +5,7 @@ import type { Exercise, Exposure, Slot } from '../../src/model.ts';
 import { buildExercise, slugify } from '../../src/import/catalog.ts';
 import { USER_DECISIONS } from '../../src/decisions.ts';
 import { BLOCK_1, EXERCISE_NAMES, LEGACY_WORKOUTS, PATTERN, type Program, type WorkoutTemplate } from '../../src/program/block1.ts';
-import { getSession, latestBodyweight, sessionsInWeek, setsForExercise, setsForSession, type AppSession, type AppSet, type TargetInfo } from './store.ts';
+import { getSession, latestBodyweight, sessionsInWeek, setsBetween, setsForExercise, setsForSession, type AppSession, type AppSet, type TargetInfo } from './store.ts';
 import { addDays, today, weekKey } from './dates.ts';
 
 export const PROGRAM: Program = BLOCK_1;
@@ -148,7 +148,9 @@ export async function weekBoard(week: string = weekKey(today())): Promise<{ week
   }
   // Suggest the next workout in order that is not done and does not repeat yesterday's movement pattern.
   const yesterday = addDays(today(), -1);
-  const recent = (await sessionsInWeek(weekKey(yesterday))).filter((s) => s.date === yesterday);
+  // What was actually trained yesterday: workouts with sets logged on that day (opening one to look doesn't count).
+  const ySets = (await setsBetween(yesterday, yesterday)).filter((s) => s.completed && s.kind !== 'warmup');
+  const recent = (await Promise.all([...new Set(ySets.map((s) => s.sessionId))].map((id) => getSession(id)))).filter((s): s is AppSession => !!s);
   // Sessions from the previous plan count too: an upper day covers push and pull, a lower day covers legs.
   const covers: Record<string, string[] | undefined> = { upper: ['push', 'pull'], lower: ['legs'] };
   const avoid = new Set<string | undefined>(recent.flatMap((s) => {
