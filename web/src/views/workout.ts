@@ -358,7 +358,16 @@ async function swap(sess: AppSession, slot: Slot, exerciseId: string): Promise<v
 }
 
 async function addExercise(sess: AppSession, exerciseId: string): Promise<void> {
-  const slot: Slot = { key: `${sess.template}/x${(sess.added?.length ?? 0) + 1}-${Date.now().toString(36)}`, exerciseId, role: 'isolation', sets: 3, repMin: 10, repMax: 15 };
+  // Big multi-joint lifts get a heavier rep range than small isolation moves.
+  const compound = /squat|press|row|deadlift|pulldown|pull up|lunge|dip/i.test(exerciseName(exerciseId));
+  const slot: Slot = {
+    key: `${sess.template}/x${(sess.added?.length ?? 0) + 1}-${Date.now().toString(36)}`,
+    exerciseId,
+    role: compound ? 'secondary' : 'isolation',
+    sets: 3,
+    repMin: compound ? 8 : 10,
+    repMax: compound ? 12 : 15,
+  };
   const targets = { ...sess.targets, [slot.key]: await targetFor(slot, sess.date, sess.id) };
   await update<AppSession>('sessions', sess.id, { added: [...(sess.added ?? []), slot], targets });
   syncSoon();

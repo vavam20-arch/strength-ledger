@@ -385,6 +385,15 @@ test('legs: swap leg press for a back squat; the target comes from the old Fitbo
   assert.match((await card.locator('.why').textContent()) ?? '', /weeks since you last did this.*restart about 10% lighter/s);
   assert.match((await phone.locator('.workout-progress').textContent()) ?? '', /0\/13 this workout.*% of the week/s);
   await shot(phone, '11-squat-swap');
+  // Adding an exercise: compound lifts get 8–12 reps, and its sets don't count toward the planned week.
+  await phone.getByRole('button', { name: 'Add an exercise' }).click();
+  await phone.getByRole('dialog', { name: 'Add an exercise' }).getByRole('button', { name: /Dumbbell Goblet Squat/ }).click();
+  const added = phone.locator('.slot', { hasText: 'Dumbbell Goblet Squat' });
+  await added.waitFor();
+  assert.match((await added.locator('.slot-plan').textContent()) ?? '', /3 sets of 8–12/);
+  await added.getByRole('button', { name: 'Done as planned' }).click();
+  await phone.waitForFunction(() => [...document.querySelectorAll('.slot')].some((s) => s.textContent?.includes('Goblet') && s.querySelectorAll('.check.on').length === 3));
+  assert.match((await phone.locator('.workout-progress').textContent()) ?? '', /0\/13 this workout/);
 });
 
 test('no errors in the browser console', () => {

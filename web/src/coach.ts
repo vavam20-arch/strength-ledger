@@ -155,7 +155,9 @@ export async function weekBoard(week: string = weekKey(today())): Promise<{ week
     let done = 0;
     if (session) {
       const sets = await setsForSession(session.id);
-      for (const slot of sessionSlots(session)) {
+      // Only the planned exercises count toward the week (swaps included); added exercises are a bonus.
+      const plannedKeys = new Set(tmpl.slots.map((x) => x.key));
+      for (const slot of sessionSlots(session).filter((x) => plannedKeys.has(x.key))) {
         const n = sets.filter((x) => x.slotKey === slot.key && x.kind === 'work' && x.completed).length;
         done += Math.min(n, slot.sets);
       }
