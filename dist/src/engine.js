@@ -21,6 +21,10 @@ export const round1 = (x        )         => Math.round(x * 10) / 10;
                   
                                                                                      
                       
+                                                                                                 
+                      
+                                                                                     
+                      
                                                                                       
                     
                                                                                              
@@ -31,6 +35,8 @@ export const DEFAULT_SETTINGS           = {
   gainMin: 0.005,
   gainMax: 0.05,
   longGapDays: 14,
+  detrainDays: 42,
+  detrainDrop: 0.1,
   extendMax: 3,
   calibrationSpan: 4,
 };
@@ -266,13 +272,13 @@ export function recommend(inp                )                 {
    * If no weight fits inside the gain band (large equipment jumps on light loads), fall back to the
    * smallest gain that still beats the benchmark inside the rep range, flagged 'big-step'.
    */
-  const calibrate = (minGain        , inclusive         )                                              => {
+  const calibrate = (minGain        , inclusive         , span = s.calibrationSpan)                                              => {
     const mid = (slot.repMin + slot.repMax) / 2;
     const goal = bench * (1 + minGain);
     const candidates                                                             = [];
     const seen = new Set        ();
     for (const c of weights) {
-      for (const w of loadsNear(ex, c, s.calibrationSpan)) {
+      for (const w of loadsNear(ex, c, span)) {
         if (seen.has(w)) continue;
         seen.add(w);
         const eff = effectiveLoad(ex, w, bw)          ;
@@ -295,7 +301,20 @@ export function recommend(inp                )                 {
     return { target: { weight: b.w, reps: fill(slot.sets, b.r) }, bigStep: true };
   };
 
-  // 1. Long gap: repeat before progressing.
+  // 1a. Very long gap: restart lighter, aiming at about 90% of the old estimate, mid-range.
+  if (gap > s.detrainDays) {
+    const lighter = calibrate(-s.detrainDrop, true, 16);
+    if (lighter) {
+      const weeks = Math.round(gap / 7);
+      return make(
+        'repeat-after-break',
+        lighter.target,
+        `${weeks} weeks since you last did this (${lastDesc}). Strength fades a little over a long break, so restart about ${Math.round(s.detrainDrop * 100)}% lighter: ${formatTarget(ex, lighter.target)}. It comes back quickly.`,
+      );
+    }
+  }
+
+  // 1b. Long gap: repeat before progressing.
   if (gap > s.longGapDays) {
     let target                = null;
     if (uniform && minR >= slot.repMin && minR <= slot.repMax) target = { weight: w0, reps: fill(slot.sets, minR) };

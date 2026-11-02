@@ -312,7 +312,9 @@ test('a new week starts empty on Monday', async () => {
   await phone.reload();
   await phone.waitForSelector('h1');
   assert.match((await phone.locator('h1').textContent()) ?? '', /Week of Nov 9/);
-  assert.match((await phone.locator('.page-head .muted').textContent()) ?? '', /^0 of 6 done/);
+  assert.equal(await phone.locator('.week-pct').textContent(), '0%');
+  assert.match((await phone.locator('.week-line').textContent()) ?? '', /^0 of 83 sets · 0 of 6 workouts · 6 days left/);
+  assert.match((await phone.locator('.week-pace').textContent()) ?? '', /83 sets left: about 12 a day/);
 });
 
 test('cardio: log a stair climber session from Train, see it in History, then fix it', async () => {
@@ -364,6 +366,25 @@ test('body tab shows a strength trend for each muscle group, priorities first', 
   const box = await phone.locator('.trend svg').first().boundingBox();
   await phone.mouse.click(box!.x + box!.width * 0.5, box!.y + box!.height / 2);
   assert.match((await phone.locator('.readout').first().textContent()) ?? '', /–.*: \d+\.\d/);
+});
+
+test('legs: swap leg press for a back squat; the target comes from the old Fitbod back squats, restarted lighter', async (t) => {
+  if (!existsSync(FITBOD)) return t.skip('private exports not present');
+  await phone.goto(server.url + '/#train');
+  await phone.locator('.week-row', { hasText: 'Legs A' }).click();
+  await phone.waitForSelector('.slot');
+  await phone.getByRole('button', { name: 'Swap Leg Press' }).click();
+  const picker = phone.getByRole('dialog', { name: 'Swap Leg Press' });
+  const first = picker.locator('.pick').first();
+  assert.match((await first.textContent()) ?? '', /Quads · same main muscle/);
+  await picker.getByRole('button', { name: /Barbell Back Squat/ }).click();
+  const card = phone.locator('.slot', { hasText: 'Barbell Back Squat' });
+  await card.waitFor();
+  assert.match((await card.locator('.target').textContent()) ?? '', /^1[4-6]\d lb × 10$/);
+  await card.locator('.why summary').click();
+  assert.match((await card.locator('.why').textContent()) ?? '', /weeks since you last did this.*restart about 10% lighter/s);
+  assert.match((await phone.locator('.workout-progress').textContent()) ?? '', /0\/13 this workout.*% of the week/s);
+  await shot(phone, '11-squat-swap');
 });
 
 test('no errors in the browser console', () => {

@@ -43,6 +43,9 @@ export const MUSCLES                                         = {
   'Hack Squat Machine': { Quads: 1, Glutes: 0.5 },
   'Leg Extension': { Quads: 1 },
   'Dumbbell Lunge': { Quads: 1, Glutes: 0.5 },
+  // Squat options for leg days (added 1 Nov 2026 at the user's request).
+  'Barbell Back Squat': { Quads: 1, Glutes: 0.5, Hamstrings: 0.5 },
+  'Dumbbell Goblet Squat': { Quads: 1, Glutes: 0.5 },
   'Romanian Deadlift': { Hamstrings: 1, Glutes: 0.5 },
   'Lying Hamstrings Curl': { Hamstrings: 1 },
   'Plate-Loaded Kneeling Leg Curl': { Hamstrings: 1 },
@@ -51,6 +54,17 @@ export const MUSCLES                                         = {
   'Life Fitness Plate-Loaded Seated Calf Raise': { Calves: 1 },
   'Ab Rollout': { Abs: 1 },
   'Vertical Leg Raise': { Abs: 1 },
+};
+
+/** Display names for every catalog exercise, by ID. */
+export const CATALOG_NAMES                         = Object.fromEntries(Object.keys(MUSCLES).map((n) => [slugify(n), n]));
+
+/**
+ * Earlier histories that count as the same exercise. A barbell is a barbell at any gym, so Fitbod's
+ * "Back Squat" (stored with a machine-style ID) feeds the targets for Barbell Back Squat.
+ */
+export const HISTORY_ALIASES                           = {
+  'barbell-back-squat': ['fitbod-back-squat'],
 };
 
 /**

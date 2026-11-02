@@ -128,6 +128,15 @@ test('long gap: repeat a matching effort (leverage squat 90 × 11, 11, 10 four w
   assert.deepEqual(r.target, { weight: 90, reps: [10, 10, 10] });
 });
 
+test('very long gap: restart about 10% lighter in the middle of the range (back squat 225 × 5 four months ago)', () => {
+  const e = ex('back-squat', 5);
+  const r = recommend({ slot: slot('back-squat', 3, 8, 12, 'anchor'), exercise: e, history: [exposure('back-squat', '2026-07-06', [[225, 5], [225, 5], [225, 5]])], state: EMPTY_STATE, asOf, bodyweight: null });
+  assert.equal(r.decision, 'repeat-after-break');
+  assert.ok(r.gainPct! <= -7 && r.gainPct! >= -13, `about 10% lighter, got ${r.gainPct}%`);
+  assert.ok(r.target!.reps.every((x) => x >= 9 && x <= 11), `mid-range reps, got ${r.target!.reps}`);
+  assert.ok(r.target!.weight >= 170 && r.target!.weight <= 190, `weight ${r.target!.weight}`);
+});
+
 test('assisted: progress by less assistance, using bodyweight for the estimate', () => {
   const e = ex('assisted-pullup', 10, 'assisted');
   const s = slot('assisted-pullup', 3, 6, 10, 'secondary');

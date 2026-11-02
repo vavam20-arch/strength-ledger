@@ -2,7 +2,7 @@
 
 import { EMPTY_STATE, evaluate, recommend, type ProgressState, type Target } from '../../src/engine.ts';
 import type { Exercise, Exposure, Slot } from '../../src/model.ts';
-import { buildExercise, slugify } from '../../src/import/catalog.ts';
+import { buildExercise, CATALOG_NAMES, HISTORY_ALIASES, slugify } from '../../src/import/catalog.ts';
 import { USER_DECISIONS } from '../../src/decisions.ts';
 import { BLOCK_1, EXERCISE_NAMES, LEGACY_WORKOUTS, PATTERN, type Program, type WorkoutTemplate } from '../../src/program/block1.ts';
 import { bus, getSession, latestBodyweight, sessionsInWeek, setsBetween, setsForExercise, setsForSession, type AppSession, type AppSet, type TargetInfo } from './store.ts';
@@ -22,18 +22,25 @@ export const plateOf = (template: string): Plate => {
 
 export function exerciseName(id: string, fallback?: string): string {
   if (EXERCISE_NAMES[id]) return EXERCISE_NAMES[id]!;
+  if (CATALOG_NAMES[id]) return CATALOG_NAMES[id]!;
   if (fallback) return fallback;
   const base = id.replace(/^fitbod-/, '');
   return base.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 // ---------- exercises ----------
+/** An exercise's sets, plus earlier histories that count as the same exercise (see HISTORY_ALIASES). */
+async function setsWithAliases(id: string): Promise<AppSet[]> {
+  const lists = await Promise.all([id, ...(HISTORY_ALIASES[id] ?? [])].map((x) => setsForExercise(x)));
+  return lists.flat();
+}
+
 const exerciseCache = new Map<string, Exercise>();
 
 export async function exerciseFor(id: string, nameHint?: string): Promise<Exercise> {
   const hit = exerciseCache.get(id);
   if (hit) return hit;
-  const sets = await setsForExercise(id);
+  const sets = await setsWithAliases(id);
   const name = exerciseName(id, nameHint ?? (sets.find((s) => s.original?.['exercise'])?.original?.['exercise'] as string | undefined));
   const current = sets.filter((s) => s.source !== 'fitbod' && s.kind !== 'warmup').map((s) => s.weight);
   const all = sets.filter((s) => s.kind !== 'warmup').map((s) => s.weight);
@@ -51,7 +58,7 @@ bus.addEventListener('change', () => exerciseCache.clear());
 
 // ---------- history → exposures ----------
 async function exposuresFor(exerciseId: string, excludeSession?: string): Promise<{ exposures: Exposure[]; sessions: Map<string, AppSession> }> {
-  const sets = (await setsForExercise(exerciseId)).filter((s) => s.sessionId !== excludeSession);
+  const sets = (await setsWithAliases(exerciseId)).filter((s) => s.sessionId !== excludeSession);
   const groups = new Map<string, AppSet[]>();
   for (const s of sets) groups.set(s.sessionId, [...(groups.get(s.sessionId) ?? []), s]);
   const sessions = new Map<string, AppSession>();
@@ -171,6 +178,23 @@ export async function weekBoard(week: string = weekKey(today())): Promise<{ week
   const inProgress = open.find((i) => i.status === 'in-progress' && i.session?.date === today());
   const pick = inProgress ?? open.find((i) => !avoid.has(PATTERN[i.template.key])) ?? open[0];
   return { week, items, suggestion: pick?.template.key ?? null };
+}
+
+/** Planned sets for the week vs sets logged toward them, and the pace needed to finish by Sunday. */
+export interface WeekProgress {
+  done: number;
+  planned: number;
+  pct: number;
+  left: number;
+  daysLeft: number; // including today
+  perDay: number;
+}
+export function weekProgress(items: WeekItem[], week: string): WeekProgress {
+  const planned = items.reduce((n, i) => n + i.planned, 0);
+  const done = items.reduce((n, i) => n + Math.min(i.done, i.planned), 0);
+  const left = Math.max(0, planned - done);
+  const daysLeft = Math.max(1, Math.min(7, Math.round((new Date(`${addDays(week, 6)}T12:00:00`).getTime() - new Date(`${today()}T12:00:00`).getTime()) / 86_400_000) + 1));
+  return { done, planned, pct: planned ? Math.round((done / planned) * 100) : 0, left, daysLeft, perDay: Math.ceil(left / daysLeft) };
 }
 
 export const programExerciseIds = (): string[] => [...new Set(PROGRAM.workouts.flatMap((w) => w.slots.map((s) => s.exerciseId)))];

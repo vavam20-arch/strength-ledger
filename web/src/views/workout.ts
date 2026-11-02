@@ -2,7 +2,7 @@
 // catch-up date, finish/reopen. Every tap is saved on the device before the screen shows it as saved.
 
 import { clear, fill, fmtNum, h, icon, sheet, stepper, toast } from '../ui.ts';
-import { exerciseFor, exerciseName, plateOf, PROGRAM, sessionSlots, slotsFromSets, targetFor, workoutByKey, workoutName } from '../coach.ts';
+import { exerciseFor, exerciseName, plateOf, PROGRAM, sessionSlots, slotsFromSets, targetFor, weekBoard, weekProgress, workoutByKey, workoutName } from '../coach.ts';
 import { getSession, pendingIds, save, setsForSession, update, type AppSession, type AppSet, type TargetInfo } from '../store.ts';
 import { longDate, relativeDay, today, weekKey } from '../dates.ts';
 import { MUSCLES, slugify } from '../../../src/import/catalog.ts';
@@ -98,12 +98,22 @@ export async function renderWorkout(root: HTMLElement, id: string): Promise<void
     },
   });
 
+  // Week progress, so the whole week stays in view mid-workout.
+  const board = isProgram ? await weekBoard(sess.weekKey) : null;
+  const wp = board ? weekProgress(board.items, board.week) : null;
+  const here = board?.items.find((i) => i.session?.id === sess.id);
   const header = h(
     'header',
     { class: 'page-head workout-head', 'data-plate': plateOf(sess.template) },
     h('a', { class: 'back', href: '#train' }, icon('back'), 'Week'),
     h('h1', null, workoutName(sess.template)),
     h('p', { class: 'muted workout-focus' }, isProgram ? tmpl?.focus ?? '' : 'From your previous plan'),
+    wp && here
+      ? h('div', { class: 'workout-progress' },
+          h('span', null, h('strong', null, `${Math.min(here.done, here.planned)}/${here.planned}`), ' this workout'),
+          h('span', { class: 'wk' }, h('strong', null, `${wp.pct}%`), ' of the week'),
+          h('span', { class: 'week-meter mini', 'aria-hidden': 'true' }, h('span', { style: `width:${wp.pct}%` })))
+      : null,
     h('label', { class: 'log-date' }, h('span', null, 'Logging for'), h('strong', null, relativeDay(logDate)), dateInput),
     logDate !== today() ? h('p', { class: 'note' }, `Catch-up mode: new sets are dated ${longDate(logDate)}.`) : null,
     sess.status === 'finished' ? h('p', { class: 'chip good' }, 'Finished · you can still add or fix sets') : null,
@@ -153,6 +163,7 @@ function kneeCheck(sess: AppSession, rerender: () => void): HTMLElement {
         h('ul', null,
           h('li', null, 'Swap the leverage squat or leg extension for a hinge such as Romanian Deadlift (use the swap button on the exercise).'),
           h('li', null, 'Stay at the 10–15 rep end with a lighter weight.'),
+          h('li', null, 'Skip the barbell back squat today. A goblet squat to a pain-free depth is usually easier on sore knees.'),
           h('li', null, 'Or do this workout later in the week.')),
         h('p', { class: 'note' }, 'If knee pain keeps coming back or gets worse, see a doctor or physical therapist.'))
     : null;

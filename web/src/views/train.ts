@@ -1,7 +1,7 @@
 // Train tab: this week's workouts, today's suggestion, open sessions from the previous plan, morning weigh-in.
 
 import { fill, h, icon, toast } from '../ui.ts';
-import { PROGRAM, plateOf, weekBoard, workoutName, type WeekItem } from '../coach.ts';
+import { PROGRAM, plateOf, weekBoard, weekProgress, workoutName, type WeekItem } from '../coach.ts';
 import { allSessions, measurements, save, type AppMeasurement } from '../store.ts';
 import { addDays, daysBetween, shortDate, today, weekKey } from '../dates.ts';
 import { cardioSheet, cardioThisWeek } from './cardio.ts';
@@ -17,11 +17,22 @@ export async function renderTrain(root: HTMLElement): Promise<void> {
   const weighedToday = (await measurements()).some((m) => m.date === todayIso && m.bodyWeight != null);
   const cardio = await cardioThisWeek();
 
-  const left = daysLeft === 0 ? 'Last day, ends tonight' : `${daysLeft} day${daysLeft === 1 ? '' : 's'} left`;
+  const wp = weekProgress(items, week);
+  const left = daysLeft === 0 ? 'last day, ends tonight' : `${daysLeft} day${daysLeft === 1 ? '' : 's'} left`;
+  const pace = wp.left === 0
+    ? 'Every planned set is done. Nice week.'
+    : wp.daysLeft === 1
+      ? `${wp.left} sets left to finish tonight.`
+      : `${wp.left} sets left: about ${wp.perDay} a day through Sunday (one workout is 13–15).`;
   fill(root,
     h('header', { class: 'page-head train-head' },
-      h('h1', null, `Week of ${shortDate(week)}`),
-      h('p', { class: 'muted' }, `${doneCount} of ${items.length} done · ${left}`)),
+      h('div', { class: 'week-title' },
+        h('h1', null, `Week of ${shortDate(week)}`),
+        h('p', { class: 'week-pct', 'aria-label': `${wp.pct}% of this week's sets done` }, `${wp.pct}`, h('span', null, '%'))),
+      h('div', { class: 'week-meter', role: 'progressbar', 'aria-valuemin': '0', 'aria-valuemax': String(wp.planned), 'aria-valuenow': String(wp.done), 'aria-label': 'Sets done this week' },
+        h('span', { style: `width:${wp.pct}%` })),
+      h('p', { class: 'week-line' }, h('strong', null, `${wp.done} of ${wp.planned} sets`), ` · ${doneCount} of ${items.length} workouts · ${left}`),
+      h('p', { class: `week-pace${wp.left && wp.perDay > 15 ? ' hard' : ''}` }, pace)),
     barbell(items),
     sugg
       ? h('a', {
