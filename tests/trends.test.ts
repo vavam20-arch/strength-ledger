@@ -74,3 +74,27 @@ test('a gap carries the index forward and one wild jump is capped', () => {
   assert.ok(t.points[2]!.index <= 116.2 && t.points[2]!.index >= 116, `capped at +15% log step, got ${t.points[2]!.index}`);
   assert.equal(t.points[3]!.index, t.points[2]!.index);
 });
+
+test('single muscles: biceps and triceps each get their own index; helpers count half in weekly sets', async () => {
+  const { muscleTrends, weeklyVolume, muscleShare } = await import('../src/trends.ts');
+  const w = windows('2026-10-28', 14, 2, addDays);
+  const s = (exerciseId: string, name: string, date: string, weight: number, reps: number): TrendSet => ({ exerciseId, name, date, weight, reps });
+  const sets = [
+    s('curl', 'Preacher Curl Machine', '2026-10-05', 40, 12),
+    s('curl', 'Preacher Curl Machine', '2026-10-20', 40, 12), // flat
+    s('tri', 'Cable Tricep Pressdown', '2026-10-05', 60, 12),
+    s('tri', 'Cable Tricep Pressdown', '2026-10-20', 66, 12), // +10%
+    s('row', 'Cable Row', '2026-10-20', 150, 10),
+  ];
+  const m = new Map(muscleTrends(sets, w).map((x) => [x.muscle, x]));
+  assert.equal(m.get('Biceps')!.changePct, 0);
+  assert.equal(m.get('Triceps')!.changePct, 10);
+  assert.equal(m.get('Biceps')!.group, 'Arms');
+  assert.deepEqual(m.get('Biceps')!.exercises.map((e) => [e.name, e.lastSet.weight, e.lastSet.reps]), [['Preacher Curl Machine', 40, 12]]);
+  assert.equal(muscleShare('Cable Row', 'Biceps'), 0.5);
+  assert.equal(muscleShare('Preacher Curl Machine', 'Biceps'), 1);
+  assert.equal(muscleShare('Some Fitbod Barbell Curl', 'Biceps'), 1);
+  const vol = weeklyVolume(sets.map((x) => ({ name: x.name, date: x.date })), w, 'Biceps', 14);
+  assert.equal(vol[1]!.perWeek, 0.8, '1 curl set + half a row set over two weeks = 0.75, shown to one decimal');
+  assert.deepEqual(vol[1]!.from.map((f) => f.name), ['Preacher Curl Machine', 'Cable Row']);
+});

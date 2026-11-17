@@ -363,8 +363,22 @@ test('body tab shows a strength trend for each muscle group, priorities first', 
   const changes = await phone.locator('.group-card .big').allTextContents();
   assert.ok(changes.slice(0, 3).every((c) => /^[+-]?\d+\.\d%$/.test(c)), `changes: ${changes}`);
   assert.ok(await noSideScroll(phone), 'body tab fits the screen');
-  await phone.locator('.group-card').first().locator('.ex-list summary').click();
+  // Each group breaks down by muscle; Arms shows biceps and triceps separately.
+  const arms = phone.locator('.group-card', { hasText: 'Arms' });
+  assert.deepEqual(await arms.locator('.mr-name').allTextContents(), ['Biceps', 'Triceps']);
+  assert.deepEqual(await phone.locator('.group-card', { hasText: 'Back' }).first().locator('.mr-name').allTextContents(), ['Lats & upper back', 'Traps', 'Lower back']);
   await shot(phone, '10-strength-6mo');
+  await arms.getByRole('button', { name: /^Biceps:/ }).click();
+  const biceps = phone.getByRole('dialog', { name: 'Biceps' });
+  await biceps.getByRole('heading', { name: 'Weekly sets' }).waitFor();
+  assert.ok((await biceps.locator('.ex-table tbody tr').count()) >= 2, 'biceps exercises listed');
+  assert.match((await biceps.locator('.ex-table tbody tr').first().locator('td').first().textContent()) ?? '', /\d+ × \d+est\. \d+/);
+  const bars = await biceps.locator('.vol svg').boundingBox();
+  await phone.mouse.click(bars!.x + bars!.width * 0.3, bars!.y + bars!.height / 2);
+  assert.match((await biceps.locator('.readout').last().textContent()) ?? '', /sets\/wk/);
+  assert.ok(await noSideScroll(phone), 'muscle page fits the screen');
+  await shot(phone, '10b-biceps');
+  await biceps.getByRole('button', { name: 'Done' }).click();
   await phone.getByRole('button', { name: '1 yr' }).click();
   await phone.getByText(/How much stronger each area is than Nov/).waitFor();
   await phone.getByRole('button', { name: '3 mo' }).click();

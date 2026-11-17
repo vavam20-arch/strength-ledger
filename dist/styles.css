@@ -415,3 +415,26 @@ button { cursor: pointer; }
 .start-options .chip-btn.on { background: var(--steel); border-color: var(--steel); color: var(--steel-ink); }
 .start-options .note { flex-basis: 100%; }
 .wr-name .chip { font-family: var(--text); vertical-align: middle; margin-left: 6px; }
+
+/* single muscles */
+.muscle-rows { list-style: none; margin: 4px 0 0; padding: 0; display: grid; border-top: 1px solid var(--line); }
+.muscle-row { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto 64px 14px; align-items: center; gap: 10px; min-height: 46px; padding: 6px 2px; border: 0; border-bottom: 1px solid var(--line); background: transparent; color: var(--ink); text-align: left; }
+.muscle-rows li:last-child .muscle-row { border-bottom: 0; }
+.mr-name { font-weight: 600; }
+.mr-vol { font-size: 0.82rem; white-space: nowrap; }
+.mr-change { font: 700 1.15rem/1 var(--display); text-align: right; font-variant-numeric: tabular-nums; }
+.mr-go { color: var(--muted); font-size: 1.3rem; line-height: 1; }
+.muscle-detail h3 { font: 700 1.3rem/1 var(--display); margin-top: 8px; }
+.vol-band { fill: var(--good-soft); }
+.vol-axis { stroke: var(--line); stroke-width: 1; }
+.vb { fill: var(--steel); opacity: 0.85; }
+.vb.on { opacity: 1; fill: var(--pull); }
+.ex-table { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
+.ex-table th, .ex-table td { text-align: left; padding: 9px 6px 9px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+.ex-table thead th { font-size: 0.75rem; font-weight: 600; color: var(--muted); padding-top: 0; }
+.ex-table tbody th { font-weight: 600; }
+.ex-table td:last-child, .ex-table thead th:last-child { text-align: right; padding-right: 0; white-space: nowrap; font: 700 1.05rem/1.2 var(--display); }
+.ex-table thead th:last-child { font: 600 0.75rem var(--text); }
+.ex-table td .mono { display: block; white-space: nowrap; }
+.ex-meta { display: block; font-size: 0.78rem; font-weight: 400; margin-top: 2px; }
+.ex-table tbody tr:last-child th, .ex-table tbody tr:last-child td { border-bottom: 0; }
