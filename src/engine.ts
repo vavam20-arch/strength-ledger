@@ -52,7 +52,8 @@ export type Decision =
   | 'repeat-after-break' // long gap
   | 'conflict-extend' // weight jump too big: extend reps first
   | 'conflict-jump' // weight jump too big and reps already extended: take the jump, expect repeats
-  | 'top-of-range'; // bodyweight exercise at the top of its range
+  | 'top-of-range' // bodyweight exercise at the top of its range
+  | 'deload'; // deload week: lighter on purpose (set by the app, not the engine)
 
 /** A target for every required set. `weight` is the logged weight (assistance for assisted; 0 for bodyweight). */
 export interface Target {

@@ -4,16 +4,24 @@
                                               
 import { slugify } from '../import/catalog.js';
 
+/** Weight-plate color family: Push/press red, Pull/back blue, Legs yellow; anything else steel. */
+                                                       
+
                                   
               
                
                 
                 
+               
+                                                                
+                     
  
 
                           
              
                
+                                             
+                      
                          
                      
                      
@@ -26,10 +34,12 @@ import { slugify } from '../import/catalog.js';
 /** Exercise ID → display name, for every exercise used by a program. */
 export const EXERCISE_NAMES                         = {};
 
-const workout = (key        , name        , focus        , rows       )                  => ({
+export const workout = (key        , name        , focus        , rows       , opts                                        = {})                  => ({
   key,
   name,
   focus,
+  plate: opts.plate ?? platePattern(key),
+  ...(opts.optional ? { optional: true } : {}),
   slots: rows.map(([exercise, role, sets, repMin, repMax], i) => {
     EXERCISE_NAMES[slugify(exercise)] = exercise;
     return { key: `${key}/${i + 1}`, exerciseId: slugify(exercise), role, sets, repMin, repMax };
@@ -50,15 +60,21 @@ export const PATTERN                                                            
   'lower-b': 'lower',
 };
 
+function platePattern(key        )        {
+  const p = PATTERN[key];
+  return p === 'push' || p === 'pull' || p === 'legs' ? p : 'steel';
+}
+
 /** Names of workouts from earlier plans, for sessions imported from the earlier app. */
 export const LEGACY_WORKOUTS                         = { 'upper-a': 'Upper A', 'upper-b': 'Upper B', 'lower-a': 'Lower A', 'lower-b': 'Lower B', fitbod: 'Fitbod workout' };
 
 export const BLOCK_1          = {
   id: 'ppl2-block1',
-  name: 'Push / Pull / Legs × 2 — Block 1',
+  name: 'Push / Pull / Legs × 2',
+  description: 'Muscle growth with high weekly volume: 6 workouts, each muscle twice a week, mostly 8–12 reps.',
   weekStartsOn: 'monday',
-  blockWeeks: 6,
-  deloadWeek: 6,
+  blockWeeks: 4,
+  deloadWeek: 0,
   suggestedOrder: ['push-a', 'pull-a', 'legs-a', 'push-b', 'pull-b', 'legs-b'],
   workouts: [
     workout('push-a', 'Push A', 'Chest', [

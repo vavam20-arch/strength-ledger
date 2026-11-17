@@ -52,7 +52,8 @@ export const DEFAULT_SETTINGS           = {
                                     
                                                                
                                                                                                    
-                    // bodyweight exercise at the top of its range
+                                                                 
+              // deload week: lighter on purpose (set by the app, not the engine)
 
 /** A target for every required set. `weight` is the logged weight (assistance for assisted; 0 for bodyweight). */
                          

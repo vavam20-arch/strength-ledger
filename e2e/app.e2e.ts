@@ -114,9 +114,15 @@ test('logging sets: one tap, done as planned, edited reps, extra set; saved thro
   await phone.waitForSelector('.slot');
   const first = phone.locator('.slot').first();
   const firstName = await first.locator('h2').textContent();
+  // No history on this device yet: the chest press asks for a baseline weight.
+  const w1 = first.getByRole('textbox', { name: 'Set 1 weight' });
+  await w1.fill('150');
+  await w1.press('Enter');
   await first.getByRole('button', { name: 'Log set 1' }).click();
   await first.getByRole('button', { name: 'Set 1 logged; tap to undo' }).waitFor();
-  await first.getByRole('button', { name: 'Done as planned' }).click();
+  assert.equal(await first.getByRole('textbox', { name: 'Set 2 weight' }).inputValue(), '150', 'later sets start from the weight used');
+  await first.getByRole('button', { name: 'Log set 2' }).click();
+  await first.getByRole('button', { name: 'Log set 3' }).click();
   await phone.waitForFunction(() => document.querySelectorAll('.slot')[0]?.querySelectorAll('.check.on').length === 3);
   await first.getByRole('button', { name: 'Extra set' }).click();
   await first.getByRole('button', { name: 'Log set +1' }).click();
@@ -394,6 +400,72 @@ test('legs: swap leg press for a back squat; the target comes from the old Fitbo
   await added.getByRole('button', { name: 'Done as planned' }).click();
   await phone.waitForFunction(() => [...document.querySelectorAll('.slot')].some((s) => s.textContent?.includes('Goblet') && s.querySelectorAll('.check.on').length === 3));
   assert.match((await phone.locator('.workout-progress').textContent()) ?? '', /0\/13 this workout/);
+});
+
+test('programs: deload week is lighter and leaves no mark on later targets', async (t) => {
+  if (!existsSync(FITBOD)) return t.skip('private exports not present');
+  // Normal Pull A target for the lat pulldown, as of the deload Monday.
+  await phone.clock.setFixedTime(new Date('2026-11-23T08:00:00-05:00'));
+  await phone.goto(server.url + '/#train');
+  await phone.reload();
+  await phone.getByText('Deload week · lighter on purpose').waitFor();
+  assert.equal(await phone.locator('.week-list').first().locator('.week-row').count(), 6);
+  await phone.locator('.week-row', { hasText: 'Pull A' }).click();
+  await phone.waitForSelector('.slot');
+  const lat = phone.locator('.slot', { hasText: 'Lat Pulldown' });
+  assert.match((await lat.locator('.slot-plan').textContent()) ?? '', /2 sets of 6–10/);
+  assert.match((await lat.textContent()) ?? '', /Deload/);
+  const deloadWeight = Number(await lat.getByRole('textbox', { name: 'Set 1 weight' }).inputValue());
+  await lat.locator('.why summary').click();
+  const normal = Number(/than this week's target \((\d+(?:\.\d+)?) lb\)/.exec((await lat.locator('.why').textContent()) ?? '')?.[1]);
+  assert.ok(deloadWeight < normal && deloadWeight >= normal * 0.85, `deload ${deloadWeight} vs normal ${normal}`);
+  await lat.getByRole('button', { name: 'Done as planned' }).click();
+  await phone.waitForFunction(() => [...document.querySelectorAll('.slot')].some((s) => s.textContent?.includes('Lat Pulldown') && s.querySelectorAll('.check.on').length === 2));
+  await shot(phone, '12-deload');
+
+  // Next block: Upper / Lower. The lat pulldown target builds on the pre-deload history, not the light week.
+  await phone.clock.setFixedTime(new Date('2026-11-30T08:00:00-05:00'));
+  await phone.goto(server.url + '/#train');
+  await phone.reload();
+  await phone.getByText('Upper / Lower Strength · week 1 of 4').waitFor();
+  assert.deepEqual(await phone.locator('.week-list').first().locator('.wr-name').allTextContents(), ['Upper Heavy', 'Lower Heavy', 'Upper Volume', 'Lower Volume']);
+  await phone.getByText('Optional this week').waitFor();
+  assert.match((await phone.locator('.week-line').textContent()) ?? '', /0 of 4 workouts/);
+  assert.equal(await phone.locator('.barbell .plate').count(), 4);
+  await shot(phone, '13-upper-lower');
+  await phone.locator('.week-row', { hasText: 'Upper Heavy' }).click();
+  await phone.waitForSelector('.slot');
+  const lat2 = phone.locator('.slot', { hasText: 'Lat Pulldown' });
+  const w2 = Number(await lat2.getByRole('textbox', { name: 'Set 1 weight' }).inputValue());
+  assert.ok(w2 > deloadWeight, `after deload: ${w2} should be above the deload weight ${deloadWeight}`);
+  // A machine with no history yet: weight field shown, baseline asked for.
+  const row = phone.locator('.slot', { hasText: 'Plate-Loaded Incline Chest-Supported Row' });
+  await row.getByText('Find your baseline').waitFor();
+  assert.equal(await row.getByRole('textbox', { name: 'Set 1 weight' }).count(), 1);
+  assert.match((await row.locator('.slot-plan').textContent()) ?? '', /3 sets of 5–8/);
+  await shot(phone, '14-upper-heavy');
+});
+
+test('programs: switch to Full Body this week from More; the Mac follows after sync', async (t) => {
+  if (!existsSync(FITBOD)) return t.skip('private exports not present');
+  await phone.goto(server.url + '/#more');
+  await phone.getByText('Upper / Lower Strength', { exact: true }).first().waitFor();
+  await phone.getByText('Coming up').waitFor();
+  await phone.getByRole('button', { name: 'Change program' }).click();
+  const sheet = phone.getByRole('dialog', { name: 'Change program' });
+  await sheet.getByRole('radio', { name: /Full Body × 3/ }).click();
+  await sheet.getByRole('radio', { name: 'This week' }).click();
+  await shot(phone, '15-change-program');
+  await sheet.getByRole('button', { name: 'Switch to Full Body × 3' }).click();
+  await phone.goto(server.url + '/#train');
+  await phone.getByText('Full Body × 3 · week 1 of 4').waitFor();
+  assert.deepEqual(await phone.locator('.week-list').first().locator('.wr-name').allTextContents(), ['Full Body A', 'Full Body B', 'Full Body C']);
+  await syncNow(phone);
+  await mac.clock.setFixedTime(new Date('2026-11-30T09:00:00-05:00'));
+  await syncNow(mac);
+  await mac.goto(server.url + '/#train');
+  await mac.reload();
+  await mac.getByText('Full Body × 3 · week 1 of 4').waitFor();
 });
 
 test('no errors in the browser console', () => {

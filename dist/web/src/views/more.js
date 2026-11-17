@@ -5,7 +5,7 @@ import { currentKey, getStatus, setUpSync, syncNow, useSyncKey } from '../sync-c
 import { importFile } from '../importer.js';
 import { exportFile, maybeDailyBackup } from '../backup.js';
 import { count, getLocal } from '../db.js';
-import { PROGRAM, exerciseName } from '../coach.js';
+import { programSection } from './program.js';
 import { shortDate } from '../dates.js';
 import { APP_VERSION } from '../version.js';
 
@@ -23,6 +23,7 @@ export async function renderMore(root             )                {
   fill(
     root,
     h('header', { class: 'page-head' }, h('h1', null, 'More')),
+    await programSection(() => void renderMore(root)),
     syncSection(key, st, root),
     importSection(root),
     h('section', { class: 'card' },
@@ -42,9 +43,6 @@ export async function renderMore(root             )                {
       h('h2', null, 'This device'),
       h('p', null, persisted ? 'Storage is marked persistent: iOS should not clear it.' : 'Storage is best-effort. Opening the app from the Home Screen and syncing keep your data safe.'),
       h('ul', { class: 'plain-list' }, counts.map(([t, n]) => h('li', null, h('span', null, t[0] .toUpperCase() + t.slice(1)), h('span', { class: 'mono' }, n.toLocaleString()))))),
-    h('details', { class: 'card' },
-      h('summary', null, PROGRAM.name),
-      PROGRAM.workouts.map((w) => h('div', { class: 'prog' }, h('h3', null, `${w.name} · ${w.focus}`), h('ul', { class: 'plain-list' }, w.slots.map((s) => h('li', null, h('span', null, exerciseName(s.exerciseId)), h('span', { class: 'mono' }, `${s.sets} × ${s.repMin}–${s.repMax}`))))))),
     h('p', { class: 'note center' }, `Strength Ledger ${APP_VERSION}`),
   );
 }

@@ -4,18 +4,40 @@ import { EMPTY_STATE, evaluate, recommend, type ProgressState, type Target } fro
 import type { Exercise, Exposure, Slot } from '../../src/model.ts';
 import { buildExercise, CATALOG_NAMES, HISTORY_ALIASES, slugify } from '../../src/import/catalog.ts';
 import { USER_DECISIONS } from '../../src/decisions.ts';
-import { BLOCK_1, EXERCISE_NAMES, LEGACY_WORKOUTS, PATTERN, type Program, type WorkoutTemplate } from '../../src/program/block1.ts';
-import { bus, getSession, latestBodyweight, sessionsInWeek, setsBetween, setsForExercise, setsForSession, type AppSession, type AppSet, type TargetInfo } from './store.ts';
+import { EXERCISE_NAMES, LEGACY_WORKOUTS, PATTERN, type Plate, type WorkoutTemplate } from '../../src/program/block1.ts';
+import { allProgramExerciseIds, DELOAD_ID, DEFAULT_SCHEDULE, findTemplate, isDeloadKey, planForWeek, regionsOf, scheduleProgram, type Block, type Region, type WeekPlan } from '../../src/program/programs.ts';
+import { stepEasier } from '../../src/engine.ts';
+import { get } from './db.ts';
+import type { SyncedRecord } from '../../src/sync/merge.ts';
+import { bus, getSession, latestBodyweight, save, sessionsInWeek, setsBetween, setsForExercise, setsForSession, type AppSession, type AppSet, type TargetInfo } from './store.ts';
 import { addDays, today, weekKey } from './dates.ts';
 
-export const PROGRAM: Program = BLOCK_1;
+// ---------- programs and the block schedule ----------
+interface ScheduleRecord {
+  id: 'schedule';
+  blocks: Block[];
+}
+/** The block schedule, synced between devices (the agreed plan until changed). */
+export async function getSchedule(): Promise<Block[]> {
+  const rec = await get<ScheduleRecord & { deleted?: boolean }>('settings', 'schedule');
+  return rec && !rec.deleted && rec.blocks?.length ? rec.blocks : DEFAULT_SCHEDULE;
+}
+export async function switchProgram(programId: string, start: string): Promise<void> {
+  const blocks = scheduleProgram(await getSchedule(), programId, start);
+  await save<SyncedRecord>('settings', { id: 'schedule', blocks } as unknown as SyncedRecord);
+}
+export async function planFor(week: string = weekKey(today())): Promise<WeekPlan> {
+  return planForWeek(await getSchedule(), week);
+}
 
-export const workoutByKey = (key: string): WorkoutTemplate | undefined => PROGRAM.workouts.find((w) => w.key === key);
+export const workoutByKey = (key: string): WorkoutTemplate | undefined => findTemplate(key);
 export const workoutName = (key: string): string => workoutByKey(key)?.name ?? LEGACY_WORKOUTS[key] ?? key;
 
-/** Weight-plate color family for a workout: Push red, Pull blue, Legs yellow; anything else steel. */
-export type Plate = 'push' | 'pull' | 'legs' | 'steel';
+/** Weight-plate color family for a workout: press red, back blue, legs yellow; anything else steel. */
+export type { Plate };
 export const plateOf = (template: string): Plate => {
+  const t = findTemplate(template);
+  if (t) return t.plate;
   const p = PATTERN[template];
   return p === 'push' || p === 'pull' || p === 'legs' ? p : 'steel';
 };
@@ -66,6 +88,8 @@ async function exposuresFor(exerciseId: string, excludeSession?: string): Promis
     const sess = await getSession(id);
     if (sess) sessions.set(id, sess);
   }));
+  // Deload weeks are deliberately light: they never count as history for the next target.
+  for (const [id, sess] of sessions) if (sess.programId === DELOAD_ID) groups.delete(id);
   const exposures: Exposure[] = [...groups.entries()].map(([sessionId, list]) => ({
     sessionId,
     exerciseId,
@@ -103,6 +127,7 @@ export async function targetFor(slot: Slot, date: string, sessionId?: string): P
   const state = await progressState(slot.exerciseId, slot, history, sessions);
   const bodyweight = await latestBodyweight(date);
   const rec = recommend({ slot, exercise: ex, history, state, asOf: date, bodyweight });
+  if (isDeloadKey(slot.key) && rec.target) return deloadTarget(slot, ex, rec, bodyweight);
   return {
     exerciseId: slot.exerciseId,
     decision: rec.decision,
@@ -112,6 +137,35 @@ export async function targetFor(slot: Slot, date: string, sessionId?: string): P
     benchmark: rec.benchmark,
     gain: rec.gainPct,
     reason: rec.reason,
+    flags: rec.flags,
+  };
+}
+
+/** Deload: the usual target about 10% lighter (a little more assistance on assisted moves), fewer sets. */
+function deloadTarget(slot: Slot, ex: Exercise, rec: ReturnType<typeof recommend>, bodyweight: number | null): TargetInfo {
+  const t = rec.target!;
+  let weight = t.weight;
+  let reps = t.reps.slice(0, slot.sets);
+  if (ex.loadType === 'bodyweight') reps = reps.map((r) => Math.max(1, r - 2));
+  else if (ex.loadType === 'assisted') weight = stepEasier(ex, weight) ?? weight;
+  else {
+    const goal = t.weight * 0.9;
+    while (weight > goal) {
+      const next = stepEasier(ex, weight);
+      if (next == null || next >= weight || next < 0) break;
+      weight = next;
+    }
+  }
+  void bodyweight;
+  return {
+    exerciseId: slot.exerciseId,
+    decision: 'deload',
+    weight,
+    reps,
+    estimate: null,
+    benchmark: rec.benchmark,
+    gain: null,
+    reason: `Deload week: ${slot.sets} set${slot.sets === 1 ? '' : 's'} instead of the usual, about 10% lighter than this week's target (${t.weight} lb). Stop well short of failure. Next week's targets ignore this week, so nothing is lost.`,
     flags: rec.flags,
   };
 }
@@ -146,10 +200,12 @@ export interface WeekItem {
   status: 'not-started' | 'in-progress' | 'done';
 }
 
-export async function weekBoard(week: string = weekKey(today())): Promise<{ week: string; items: WeekItem[]; suggestion: string | null }> {
-  const sessions = (await sessionsInWeek(week)).filter((s) => s.programId === PROGRAM.id);
+export async function weekBoard(week: string = weekKey(today())): Promise<{ week: string; items: WeekItem[]; suggestion: string | null; plan: WeekPlan }> {
+  const plan = await planFor(week);
+  const program = plan.program;
+  const sessions = (await sessionsInWeek(week)).filter((s) => s.programId === program.id);
   const items: WeekItem[] = [];
-  for (const tmpl of PROGRAM.workouts) {
+  for (const tmpl of program.workouts) {
     const session = sessions.filter((s) => s.template === tmpl.key).sort((a, b) => a.date.localeCompare(b.date))[0] ?? null;
     const planned = tmpl.slots.reduce((n, s) => n + s.sets, 0);
     let done = 0;
@@ -165,21 +221,27 @@ export async function weekBoard(week: string = weekKey(today())): Promise<{ week
     const status = !session || done === 0 ? (session?.status === 'finished' ? 'done' : 'not-started') : done >= planned || session.status === 'finished' ? 'done' : 'in-progress';
     items.push({ template: tmpl, session, planned, done, status });
   }
-  // Suggest the next workout in order that is not done and does not repeat yesterday's movement pattern.
+  // Suggest the next workout in order that is not done and does not repeat yesterday's main regions.
   const yesterday = addDays(today(), -1);
   // What was actually trained yesterday: workouts with sets logged on that day (opening one to look doesn't count).
   const ySets = (await setsBetween(yesterday, yesterday)).filter((s) => s.completed && s.kind !== 'warmup');
   const recent = (await Promise.all([...new Set(ySets.map((s) => s.sessionId))].map((id) => getSession(id)))).filter((s): s is AppSession => !!s);
-  // Sessions from the previous plan count too: an upper day covers push and pull, a lower day covers legs.
-  const covers: Record<string, string[] | undefined> = { upper: ['push', 'pull'], lower: ['legs'] };
-  const avoid = new Set<string | undefined>(recent.flatMap((s) => {
-    const p = PATTERN[s.template];
-    return p ? covers[p] ?? [p] : [];
-  }));
-  const open = PROGRAM.suggestedOrder.map((k) => items.find((i) => i.template.key === k)!).filter((i) => i.status !== 'done');
+  const avoid = new Set<Region>(recent.flatMap((s) => [...regionsForSession(s.template)]));
+  const open = program.suggestedOrder.map((k) => items.find((i) => i.template.key === k)!).filter((i) => i && i.status !== 'done');
+  const required = open.filter((i) => !i.template.optional);
   const inProgress = open.find((i) => i.status === 'in-progress' && i.session?.date === today());
-  const pick = inProgress ?? open.find((i) => !avoid.has(PATTERN[i.template.key])) ?? open[0];
-  return { week, items, suggestion: pick?.template.key ?? null };
+  const fresh = (i: WeekItem) => ![...regionsForSession(i.template.key)].some((r) => avoid.has(r));
+  // Required workouts first; optional pump days are suggested once the required ones are done.
+  const pick = inProgress ?? required.find(fresh) ?? required[0] ?? open.find(fresh) ?? open[0];
+  return { week, items, suggestion: pick?.template.key ?? null, plan };
+}
+
+/** Main regions a workout trains; workouts from the previous plan: upper = push + pull, lower = legs. */
+function regionsForSession(template: string): Set<Region> {
+  const t = findTemplate(template);
+  if (t) return regionsOf(t, (id) => exerciseName(id));
+  const p = PATTERN[template];
+  return new Set<Region>(p === 'upper' ? ['push', 'pull'] : p === 'lower' ? ['legs'] : p ? [p] : []);
 }
 
 /** Planned sets for the week vs sets logged toward them, and the pace needed to finish by Sunday. */
@@ -192,12 +254,14 @@ export interface WeekProgress {
   perDay: number;
 }
 export function weekProgress(items: WeekItem[], week: string): WeekProgress {
-  const planned = items.reduce((n, i) => n + i.planned, 0);
-  const done = items.reduce((n, i) => n + Math.min(i.done, i.planned), 0);
+  // Optional days are a bonus: they don't count toward the week's completion.
+  const req = items.filter((i) => !i.template.optional);
+  const planned = req.reduce((n, i) => n + i.planned, 0);
+  const done = req.reduce((n, i) => n + Math.min(i.done, i.planned), 0);
   const left = Math.max(0, planned - done);
   const daysLeft = Math.max(1, Math.min(7, Math.round((new Date(`${addDays(week, 6)}T12:00:00`).getTime() - new Date(`${today()}T12:00:00`).getTime()) / 86_400_000) + 1));
   return { done, planned, pct: planned ? Math.round((done / planned) * 100) : 0, left, daysLeft, perDay: Math.ceil(left / daysLeft) };
 }
 
-export const programExerciseIds = (): string[] => [...new Set(PROGRAM.workouts.flatMap((w) => w.slots.map((s) => s.exerciseId)))];
+export const programExerciseIds = allProgramExerciseIds;
 export { slugify };

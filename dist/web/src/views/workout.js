@@ -2,7 +2,7 @@
 // catch-up date, finish/reopen. Every tap is saved on the device before the screen shows it as saved.
 
 import { clear, fill, fmtNum, h, icon, sheet, stepper, toast } from '../ui.js';
-import { exerciseFor, exerciseName, plateOf, PROGRAM, sessionSlots, slotsFromSets, targetFor, weekBoard, weekProgress, workoutByKey, workoutName } from '../coach.js';
+import { exerciseFor, exerciseName, planFor, plateOf, sessionSlots, slotsFromSets, targetFor, weekBoard, weekProgress, workoutByKey, workoutName } from '../coach.js';
 import { getSession, pendingIds, save, setsForSession, update,                                               } from '../store.js';
 import { longDate, relativeDay, today, weekKey } from '../dates.js';
 import { MUSCLES, slugify } from '../../../src/import/catalog.js';
@@ -24,6 +24,7 @@ const DECISION_LABEL                         = {
   'conflict-jump': 'Take the jump',
   'top-of-range': 'Top of range',
   baseline: 'Find your baseline',
+  deload: 'Deload',
 };
 
 /** Open (or create) this week's session for a workout and return its ID. Targets are fixed now. */
@@ -33,7 +34,8 @@ export async function startSession(templateKey        )                  {
   const date = today();
   const wk = weekKey(date);
   const { sessionsInWeek } = await import('../store.js');
-  const existing = (await sessionsInWeek(wk)).find((s) => s.template === templateKey && s.programId === PROGRAM.id);
+  const plan = await planFor(wk);
+  const existing = (await sessionsInWeek(wk)).find((s) => s.template === templateKey && s.programId === plan.program.id);
   if (existing) return existing.id;
   const targets                             = {};
   for (const slot of tmpl.slots) targets[slot.key] = await targetFor(slot, date);
@@ -42,7 +44,7 @@ export async function startSession(templateKey        )                  {
     date,
     weekKey: wk,
     template: templateKey,
-    programId: PROGRAM.id,
+    programId: plan.program.id,
     source: 'app',
     status: 'open',
     startedAt: new Date().toISOString(),
@@ -66,7 +68,7 @@ export async function renderWorkout(root             , id        )              
   }
   const sets = await setsForSession(id);
   const pending = await pendingIds();
-  const isProgram = sess.programId === PROGRAM.id;
+  const isProgram = sess.programId != null && !!workoutByKey(sess.template);
   const slots = isProgram ? sessionSlots(sess) : slotsFromSets(sets);
   const logDate = logDates.get(id) ?? today();
   const tmpl = workoutByKey(sess.template);
@@ -264,7 +266,7 @@ async function slotCard(
       actions),
     targetLine ? h('p', { class: 'target-row' }, h('span', { class: 'target-label' }, 'Target'), h('span', { class: 'target' }, targetLine)) : null,
     why,
-    h('div', { class: 'set-head', 'aria-hidden': 'true' }, h('span', null, 'Set'), h('span', null, bw ? '' : ex.loadType === 'assisted' ? 'Assist (lb)' : 'Weight (lb)'), h('span', null, 'Reps'), h('span', null, '')),
+    h('div', { class: 'set-head', 'aria-hidden': 'true' }, h('span', null, 'Set'), h('span', null, bw ? '' : ex.loadType === 'assisted' ? 'Assist (lb)' : ex.loadType === 'weighted' ? 'Added (lb)' : 'Weight (lb)'), h('span', null, 'Reps'), h('span', null, '')),
     h('div', { class: 'sets' }, rows),
     h('div', { class: 'slot-foot' },
       doneAsPlanned,
@@ -333,7 +335,8 @@ function statusIcon(isPending         )              {
     : h('span', { class: 'sync-dot', title: 'Saved and synced', 'aria-label': 'Saved and synced' });
 }
 
-const fmtLoad = (ex          , w        )         => (ex.loadType === 'assisted' ? `${fmtNum(w)} lb assist` : `${fmtNum(w)} lb`);
+const fmtLoad = (ex          , w        )         =>
+  ex.loadType === 'assisted' ? `${fmtNum(w)} lb assist` : ex.loadType === 'weighted' ? (w > 0 ? `+${fmtNum(w)} lb` : 'Bodyweight') : `${fmtNum(w)} lb`;
 const repsText = (reps          )         => (reps.length && reps.every((x) => x === reps[0]) ? `${reps[0]}` : reps.join(', '));
 const toneFor = (d        )         => (d === 'add-weight' || d === 'calibrate' || d === 'conflict-jump' ? 'good' : d === 'repeat' || d === 'hold' || d === 'repeat-after-break' || d === 'conflict-extend' ? 'warn' : d === 'step-back' ? 'bad' : 'accent');
 

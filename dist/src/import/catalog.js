@@ -54,7 +54,30 @@ export const MUSCLES                                         = {
   'Life Fitness Plate-Loaded Seated Calf Raise': { Calves: 1 },
   'Ab Rollout': { Abs: 1 },
   'Vertical Leg Raise': { Abs: 1 },
+  // Machines at the user's gym, added from their photos (16 Nov 2026). Plate-loaded: log the total
+  // plates added, both sides together.
+  'Matrix Plate-Loaded Squat/Lunge': { Quads: 1, Glutes: 0.5 },
+  'Plate-Loaded Incline Chest-Supported Row': { Back: 1, 'Rear delts': 0.5, Biceps: 0.5 },
+  'Plate-Loaded Chest-Supported T-Bar Row': { Back: 1, 'Rear delts': 0.5, Biceps: 0.5 },
+  'Triceps Extension Machine': { Triceps: 1 },
+  'Biceps Curl Machine': { Biceps: 1 },
+  'Low Back Extension Machine': { 'Lower back': 1, Glutes: 0.5 },
+  '45° Back Extension': { Glutes: 1, Hamstrings: 0.5, 'Lower back': 0.5 },
+  'Hip Adductor Machine': { Adductors: 1 },
+  'Machine Hip Abductor': { Glutes: 1 },
+  // Free-weight and cable variations used by the programs.
+  'Barbell Bench Press': { Chest: 1, Triceps: 0.5, 'Front delts': 0.5 },
+  'Dumbbell Shoulder Press': { 'Front delts': 1, 'Side delts': 0.5, Triceps: 0.5 },
+  'Cable Face Pull': { 'Rear delts': 1, Traps: 0.5 },
+  'Incline Dumbbell Curl': { Biceps: 1 },
+  'Dumbbell Romanian Deadlift': { Hamstrings: 1, Glutes: 0.5 },
+  'Barbell Hip Thrust': { Glutes: 1, Hamstrings: 0.5 },
 };
+
+/** Exercises done for reps with no added load. */
+const BODYWEIGHT = new Set(['Ab Rollout', 'Vertical Leg Raise']);
+/** Bodyweight exercises where you may hold extra weight: log the added weight (0 for none). */
+const WEIGHTED = new Set(['45° Back Extension']);
 
 /** Display names for every catalog exercise, by ID. */
 export const CATALOG_NAMES                         = Object.fromEntries(Object.keys(MUSCLES).map((n) => [slugify(n), n]));
@@ -119,6 +142,10 @@ export const fitbodExerciseId = (name        , anyWeight         )         => (i
 
 export function inferLoadType(name        , anyWeight         )           {
   if (/assisted/i.test(name)) return 'assisted';
+  if (BODYWEIGHT.has(name)) return 'bodyweight';
+  if (WEIGHTED.has(name)) return 'weighted';
+  // A catalog exercise is loaded even before its first logged set, so a new machine shows a weight field.
+  if (MUSCLES[name]) return 'external';
   return anyWeight ? 'external' : 'bodyweight';
 }
 

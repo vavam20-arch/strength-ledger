@@ -1,17 +1,21 @@
 // Train tab: this week's workouts, today's suggestion, open sessions from the previous plan, morning weigh-in.
 
 import { fill, h, icon, toast } from '../ui.js';
-import { PROGRAM, plateOf, weekBoard, weekProgress, workoutName,               } from '../coach.js';
+import { plateOf, weekBoard, weekProgress, workoutName,               } from '../coach.js';
+import { DELOAD_ID, programById,                           } from '../../../src/program/programs.js';
 import { allSessions, measurements, save,                     } from '../store.js';
 import { addDays, daysBetween, shortDate, today, weekKey } from '../dates.js';
 import { cardioSheet, cardioThisWeek } from './cardio.js';
 
 export async function renderTrain(root             )                {
-  const { week, items, suggestion } = await weekBoard();
+  const { week, items: all, suggestion, plan } = await weekBoard();
+  const items = all.filter((i) => !i.template.optional);
+  const optional = all.filter((i) => i.template.optional);
   const end = addDays(week, 6);
   const daysLeft = daysBetween(today(), end);
   const doneCount = items.filter((i) => i.status === 'done').length;
-  const sugg = items.find((i) => i.template.key === suggestion);
+  const sugg = all.find((i) => i.template.key === suggestion);
+  const sizes = items.map((i) => i.planned);
   const legacyOpen = (await allSessions()).filter((s) => s.status === 'open' && s.programId == null).sort((a, b) => b.date.localeCompare(a.date));
   const todayIso = today();
   const weighedToday = (await measurements()).some((m) => m.date === todayIso && m.bodyWeight != null);
@@ -23,16 +27,18 @@ export async function renderTrain(root             )                {
     ? 'Every planned set is done. Nice week.'
     : wp.daysLeft === 1
       ? `${wp.left} sets left to finish tonight.`
-      : `${wp.left} sets left: about ${wp.perDay} a day through Sunday (one workout is 13–15).`;
+      : `${wp.left} sets left: about ${wp.perDay} a day through Sunday (one workout is ${Math.min(...sizes) === Math.max(...sizes) ? Math.min(...sizes) : `${Math.min(...sizes)}–${Math.max(...sizes)}`}).`;
   fill(root,
     h('header', { class: 'page-head train-head' },
+      h('a', { class: 'program-line', href: '#more' }, programLine(plan)),
       h('div', { class: 'week-title' },
         h('h1', null, `Week of ${shortDate(week)}`),
         h('p', { class: 'week-pct', 'aria-label': `${wp.pct}% of this week's sets done` }, `${wp.pct}`, h('span', null, '%'))),
       h('div', { class: 'week-meter', role: 'progressbar', 'aria-valuemin': '0', 'aria-valuemax': String(wp.planned), 'aria-valuenow': String(wp.done), 'aria-label': 'Sets done this week' },
         h('span', { style: `width:${wp.pct}%` })),
       h('p', { class: 'week-line' }, h('strong', null, `${wp.done} of ${wp.planned} sets`), ` · ${doneCount} of ${items.length} workouts · ${left}`),
-      h('p', { class: `week-pace${wp.left && wp.perDay > 15 ? ' hard' : ''}` }, pace)),
+      h('p', { class: `week-pace${wp.left && wp.perDay > Math.max(...sizes) ? ' hard' : ''}` }, pace)),
+    blockNotice(plan),
     barbell(items),
     sugg
       ? h('a', {
@@ -44,10 +50,17 @@ export async function renderTrain(root             )                {
           h('span', { class: 'hero-title' }, sugg.template.name),
           h('span', { class: 'hero-sub' }, `${sugg.template.focus} · ${sugg.planned} sets${sugg.done ? `, ${sugg.done} done` : ''}`),
           h('span', { class: 'hero-go', 'aria-hidden': 'true' }, sugg.status === 'in-progress' ? 'Continue' : 'Start'))
-      : h('div', { class: 'card done-card' }, h('strong', null, 'All six workouts are done this week.'), h('p', { class: 'muted' }, 'Use the rest of the week for cardio, core or recovery.')),
+      : h('div', { class: 'card done-card' }, h('strong', null, `All ${items.length} workouts are done this week.`), h('p', { class: 'muted' }, 'Use the rest of the week for cardio, core or recovery.')),
     weighedToday ? null : weighInCard(todayIso),
     h('h2', { class: 'section-title' }, 'This week'),
     h('ul', { class: 'week-list' }, items.map((i) => weekRow(i, i.template.key === suggestion))),
+    optional.length
+      ? [
+          h('h2', { class: 'section-title' }, 'Optional this week'),
+          h('p', { class: 'note' }, 'Extra pump days for when you have the energy. They don’t count toward the week.'),
+          h('ul', { class: 'week-list' }, optional.map((i) => weekRow(i, i.template.key === suggestion))),
+        ]
+      : null,
     h('h2', { class: 'section-title' }, 'Cardio'),
     h('div', { class: 'card cardio-card', 'data-plate': 'cardio' },
       h('div', { class: 'wr-main' },
@@ -62,20 +75,42 @@ export async function renderTrain(root             )                {
               h('li', null, h('a', { class: 'week-row', 'data-plate': 'steel', href: `#w/${s.id}` }, h('span', { class: 'wr-main' }, h('strong', { class: 'wr-name' }, workoutName(s.template)), h('span', { class: 'muted' }, `Started ${shortDate(s.date)}. Finish it here.`)), h('span', { class: 'chip warn' }, 'Open'))))),
         ]
       : null,
-    h('p', { class: 'note center program-name' }, PROGRAM.name),
   );
 }
 
+const blockName = (b       )         => (b.programId === DELOAD_ID ? 'Deload week' : programById(b.programId)?.name ?? b.programId);
+
+function programLine(plan          )         {
+  if (plan.program.id === DELOAD_ID) return 'Deload week · lighter on purpose';
+  return plan.overrun ? `${plan.program.name} · block finished` : `${plan.program.name} · week ${plan.week} of ${plan.block.weeks}`;
+}
+
+/** In a block's last week, say what comes next; once it has run out, ask what's next. */
+function blockNotice(plan          )                     {
+  if (plan.overrun) {
+    return h('a', { class: 'card block-note', href: '#more' },
+      h('strong', null, `Your ${plan.program.name} block is done.`),
+      h('span', { class: 'muted' }, 'You can keep going with it, or choose the next program in More.'));
+  }
+  if (plan.week === plan.block.weeks && plan.next) {
+    return h('a', { class: 'card block-note', href: '#more' },
+      h('strong', null, `Last week of this block. Next up: ${blockName(plan.next)}.`),
+      h('span', { class: 'muted' }, `Starts Monday ${shortDate(plan.next.start)}. Change it in More.`));
+  }
+  return null;
+}
+
 /**
- * The week as a loaded barbell: A workouts on the left sleeve, B on the right, each plate in its
+ * The week as a loaded barbell: the first half of the workouts on the left sleeve, the rest on the right, each plate in its
  * workout's color. A finished workout is a solid plate; one in progress fills from the bottom.
  */
 function barbell(items            )              {
   const W = 360, H = 120, mid = H / 2;
   const plateW = 22, gap = 4, plateH = 96;
-  const order = (suffix        ) => items.filter((i) => i.template.key.endsWith(suffix));
-  const leftSide = order('-a'); // inner to outer: push, pull, legs
-  const rightSide = order('-b');
+  // First half of the week's workouts on the left sleeve, the rest on the right (inner to outer).
+  const half = Math.ceil(items.length / 2);
+  const leftSide = items.slice(0, half);
+  const rightSide = items.slice(half);
   const innerL = W / 2 - 64, innerR = W / 2 + 64;
   const plate = (i          , x        )         => {
     const frac = i.status === 'done' ? 1 : Math.min(1, i.done / i.planned);

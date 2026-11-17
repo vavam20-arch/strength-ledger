@@ -4,16 +4,24 @@
 import type { Role, Slot } from '../model.ts';
 import { slugify } from '../import/catalog.ts';
 
+/** Weight-plate color family: Push/press red, Pull/back blue, Legs yellow; anything else steel. */
+export type Plate = 'push' | 'pull' | 'legs' | 'steel';
+
 export interface WorkoutTemplate {
   key: string;
   name: string;
   focus: string;
   slots: Slot[];
+  plate: Plate;
+  /** Optional days don't count toward the week's completion. */
+  optional?: boolean;
 }
 
 export interface Program {
   id: string;
   name: string;
+  /** One line on what the program is for. */
+  description: string;
   weekStartsOn: 'monday';
   blockWeeks: number;
   deloadWeek: number;
@@ -26,10 +34,12 @@ type Row = [exercise: string, role: Role, sets: number, repMin: number, repMax: 
 /** Exercise ID → display name, for every exercise used by a program. */
 export const EXERCISE_NAMES: Record<string, string> = {};
 
-const workout = (key: string, name: string, focus: string, rows: Row[]): WorkoutTemplate => ({
+export const workout = (key: string, name: string, focus: string, rows: Row[], opts: { plate?: Plate; optional?: boolean } = {}): WorkoutTemplate => ({
   key,
   name,
   focus,
+  plate: opts.plate ?? platePattern(key),
+  ...(opts.optional ? { optional: true } : {}),
   slots: rows.map(([exercise, role, sets, repMin, repMax], i) => {
     EXERCISE_NAMES[slugify(exercise)] = exercise;
     return { key: `${key}/${i + 1}`, exerciseId: slugify(exercise), role, sets, repMin, repMax };
@@ -50,15 +60,21 @@ export const PATTERN: Record<string, 'push' | 'pull' | 'legs' | 'upper' | 'lower
   'lower-b': 'lower',
 };
 
+function platePattern(key: string): Plate {
+  const p = PATTERN[key];
+  return p === 'push' || p === 'pull' || p === 'legs' ? p : 'steel';
+}
+
 /** Names of workouts from earlier plans, for sessions imported from the earlier app. */
 export const LEGACY_WORKOUTS: Record<string, string> = { 'upper-a': 'Upper A', 'upper-b': 'Upper B', 'lower-a': 'Lower A', 'lower-b': 'Lower B', fitbod: 'Fitbod workout' };
 
 export const BLOCK_1: Program = {
   id: 'ppl2-block1',
-  name: 'Push / Pull / Legs × 2 — Block 1',
+  name: 'Push / Pull / Legs × 2',
+  description: 'Muscle growth with high weekly volume: 6 workouts, each muscle twice a week, mostly 8–12 reps.',
   weekStartsOn: 'monday',
-  blockWeeks: 6,
-  deloadWeek: 6,
+  blockWeeks: 4,
+  deloadWeek: 0,
   suggestedOrder: ['push-a', 'pull-a', 'legs-a', 'push-b', 'pull-b', 'legs-b'],
   workouts: [
     workout('push-a', 'Push A', 'Chest', [

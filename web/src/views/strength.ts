@@ -3,7 +3,7 @@
 
 import { h } from '../ui.ts';
 import { exerciseName } from '../coach.ts';
-import { setsBetween } from '../store.ts';
+import { getSession, setsBetween } from '../store.ts';
 import { addDays, shortDate, today } from '../dates.ts';
 import { GROUPS, PRIORITY, strengthTrends, windows, type Group, type GroupTrend, type TrendSet } from '../../../src/trends.ts';
 
@@ -23,8 +23,11 @@ export async function strengthSection(): Promise<HTMLElement> {
     const { days, count } = RANGES[range];
     const wins = windows(today(), days, count, addDays);
     const raw = await setsBetween(wins[0]!.start, wins.at(-1)!.end);
+    // Deload weeks are light on purpose; leave them out so they don't look like lost strength.
+    const ids = [...new Set(raw.map((s) => s.sessionId))];
+    const deload = new Set((await Promise.all(ids.map(async (id) => ((await getSession(id))?.programId === 'deload' ? id : null)))).filter((x): x is string => !!x));
     const sets: TrendSet[] = raw
-      .filter((s) => s.completed && s.kind !== 'warmup')
+      .filter((s) => s.completed && s.kind !== 'warmup' && !deload.has(s.sessionId))
       .map((s) => ({ exerciseId: s.exerciseId, name: (s.original?.['exercise'] as string | undefined) ?? exerciseName(s.exerciseId), date: s.performedDate, weight: s.weight, reps: s.reps }));
     const trends = strengthTrends(sets, wins);
     const byGroup = new Map(trends.map((t) => [t.group, t]));

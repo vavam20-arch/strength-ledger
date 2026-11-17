@@ -391,3 +391,27 @@ button { cursor: pointer; }
 .week-pace.hard { color: var(--warn); font-weight: 600; }
 .workout-progress { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; padding: 10px 12px; border-radius: var(--r-sm); background: var(--surface); border: 1px solid var(--line); font-size: 0.88rem; color: var(--muted); }
 .workout-progress strong { font: 700 1.3rem/1 var(--display); color: var(--ink); margin-right: 2px; }
+
+/* programs and blocks */
+.program-line { justify-self: start; font-size: 0.88rem; font-weight: 600; color: var(--muted); text-decoration: none; border-bottom: 1px dashed var(--line); }
+.block-note { text-decoration: none; color: var(--ink); gap: 4px; border-left: 6px solid var(--steel); }
+.block-note .muted { font-size: 0.9rem; }
+.program-now { position: relative; display: grid; gap: 4px; padding: 12px 14px 12px 20px; border-radius: var(--r-sm); background: var(--sunk); overflow: hidden; }
+.program-now::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 6px; background: var(--plate); }
+.program-now .program-name { font: 700 1.7rem/1 var(--display); }
+.upcoming li span:last-child { white-space: nowrap; }
+.program-detail summary { font-weight: 600; color: var(--muted); cursor: pointer; min-height: 36px; display: flex; align-items: center; }
+.prog { border-left: 4px solid var(--plate); padding-left: 10px; margin-top: 12px; }
+.prog h3 { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.program-options { display: grid; gap: 8px; }
+.program-option { position: relative; display: grid; gap: 4px; text-align: left; padding: 12px 14px 12px 20px; border-radius: var(--r); border: 1.5px solid var(--line); background: var(--surface); color: var(--ink); overflow: hidden; }
+.program-option::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 6px; background: var(--plate); }
+.program-option.on { border-color: var(--steel); box-shadow: inset 0 0 0 1.5px var(--steel); }
+.program-option strong { font: 700 1.35rem/1.05 var(--display); display: flex; align-items: center; gap: 8px; }
+.program-option strong .chip { font-family: var(--text); }
+.program-option .shape { font-size: 0.85rem; font-weight: 600; }
+.program-option .desc { font-size: 0.9rem; color: var(--muted); }
+.start-options { display: flex; flex-wrap: wrap; gap: 6px; }
+.start-options .chip-btn.on { background: var(--steel); border-color: var(--steel); color: var(--steel-ink); }
+.start-options .note { flex-basis: 100%; }
+.wr-name .chip { font-family: var(--text); vertical-align: middle; margin-left: 6px; }
