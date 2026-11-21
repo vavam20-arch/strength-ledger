@@ -34,12 +34,15 @@ export async function renderTrain(root             )                {
       h('div', { class: 'week-title' },
         h('h1', null, `Week of ${shortDate(week)}`),
         h('p', { class: 'week-pct', 'aria-label': `${wp.pct}% of this week's sets done` }, `${wp.pct}`, h('span', null, '%'))),
+      barbell(items),
       h('div', { class: 'week-meter', role: 'progressbar', 'aria-valuemin': '0', 'aria-valuemax': String(wp.planned), 'aria-valuenow': String(wp.done), 'aria-label': 'Sets done this week' },
         h('span', { style: `width:${wp.pct}%` })),
-      h('p', { class: 'week-line' }, h('strong', null, `${wp.done} of ${wp.planned} sets`), ` · ${doneCount} of ${items.length} workouts · ${left}`),
+      h('p', { class: 'week-line' },
+        h('span', { class: 'ws' }, h('strong', null, `${wp.done}`), ` of ${wp.planned} sets`),
+        h('span', { class: 'ws' }, h('strong', null, `${doneCount}`), ` of ${items.length} workouts`),
+        h('span', { class: 'ws' }, daysLeft === 0 ? h('strong', null, 'Last') : h('strong', null, `${daysLeft}`), daysLeft === 0 ? ' day, ends tonight' : ` day${daysLeft === 1 ? '' : 's'} left`)),
       h('p', { class: `week-pace${wp.left && wp.perDay > Math.max(...sizes) ? ' hard' : ''}` }, pace)),
     blockNotice(plan),
-    barbell(items),
     sugg
       ? h('a', {
           class: 'hero-card',
@@ -105,34 +108,41 @@ function blockNotice(plan          )                     {
  * workout's color. A finished workout is a solid plate; one in progress fills from the bottom.
  */
 function barbell(items            )              {
-  const W = 360, H = 120, mid = H / 2;
-  const plateW = 22, gap = 4, plateH = 96;
-  // First half of the week's workouts on the left sleeve, the rest on the right (inner to outer).
+  // Bumper plates seen edge-on, loaded symmetrically: the first half of the week's workouts on the
+  // left sleeve, the rest on the right, innermost first. Empty plates are faint; logged sets fill
+  // a plate from the bottom; a finished workout is a solid plate.
+  const W = 360, H = 112, mid = H / 2;
+  const plateW = 24, gap = 3, plateH = 100;
   const half = Math.ceil(items.length / 2);
   const leftSide = items.slice(0, half);
   const rightSide = items.slice(half);
-  const innerL = W / 2 - 64, innerR = W / 2 + 64;
+  const collarW = 12, collarL = 98, collarR = 250;
   const plate = (i          , x        )         => {
     const frac = i.status === 'done' ? 1 : Math.min(1, i.done / i.planned);
     const p = plateOf(i.template.key);
     const y = mid - plateH / 2;
     const fillH = plateH * frac;
-    return `<g class="plate ${p}">
-      <rect x="${x}" y="${y}" width="${plateW}" height="${plateH}" rx="5" class="plate-slot"/>
-      ${frac > 0 ? `<rect x="${x}" y="${y + plateH - fillH}" width="${plateW}" height="${fillH}" rx="5" class="plate-fill"/>` : ''}
+    return `<g class="plate ${p}${i.status === 'done' ? ' full' : ''}">
+      <rect x="${x}" y="${y}" width="${plateW}" height="${plateH}" rx="6" class="plate-slot"/>
+      ${frac > 0 ? `<clipPath id="pc-${i.template.key}"><rect x="${x}" y="${y}" width="${plateW}" height="${plateH}" rx="6"/></clipPath><rect x="${x}" y="${y + plateH - fillH}" width="${plateW}" height="${fillH}" class="plate-fill" clip-path="url(#pc-${i.template.key})"/>` : ''}
+      <rect x="${x + plateW / 2 - 1}" y="${y + 10}" width="2" height="${plateH - 20}" rx="1" class="plate-rib"/>
       <title>${i.template.name}: ${i.status === 'done' ? 'done' : i.done ? `${i.done} of ${i.planned} sets` : 'not started'}</title>
     </g>`;
   };
-  const leftPlates = leftSide.map((i, k) => plate(i, innerL - 10 - (k + 1) * (plateW + gap) + gap)).join('');
-  const rightPlates = rightSide.map((i, k) => plate(i, innerR + 10 + k * (plateW + gap))).join('');
+  const leftPlates = leftSide.map((i, k) => plate(i, collarL - gap - plateW - k * (plateW + gap))).join('');
+  const rightPlates = rightSide.map((i, k) => plate(i, collarR + collarW + gap + k * (plateW + gap))).join('');
   const loaded = items.filter((i) => i.status === 'done').length;
   return h('figure', {
     class: 'barbell',
     html: `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="This week: ${loaded} of ${items.length} workouts done">
-      <rect x="6" y="${mid - 4}" width="${W - 12}" height="8" rx="4" class="bar"/>
-      <rect x="${innerL - 10}" y="${mid - 14}" width="10" height="28" rx="2" class="collar"/>
-      <rect x="${innerR}" y="${mid - 14}" width="10" height="28" rx="2" class="collar"/>
-      <rect x="${innerL}" y="${mid - 6}" width="${innerR - innerL}" height="12" rx="3" class="grip"/>
+      <defs><pattern id="knurl" width="4" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="2" height="4" class="knurl"/></pattern></defs>
+      <rect x="4" y="${mid - 8}" width="${collarL}" height="16" rx="4" class="sleeve"/>
+      <rect x="${collarR + collarW - 4}" y="${mid - 8}" width="${W - 4 - (collarR + collarW - 4)}" height="16" rx="4" class="sleeve"/>
+      <rect x="${collarL}" y="${mid - 5}" width="${collarR - collarL + collarW}" height="10" rx="3" class="shaft"/>
+      <rect x="${collarL + 22}" y="${mid - 5}" width="${(collarR - collarL - 44 - 20) / 2}" height="10" fill="url(#knurl)"/>
+      <rect x="${(collarL + collarR + collarW) / 2 + 10}" y="${mid - 5}" width="${(collarR - collarL - 44 - 20) / 2}" height="10" fill="url(#knurl)"/>
+      <rect x="${collarL}" y="${mid - 17}" width="${collarW}" height="34" rx="3" class="collar"/>
+      <rect x="${collarR}" y="${mid - 17}" width="${collarW}" height="34" rx="3" class="collar"/>
       ${leftPlates}${rightPlates}
     </svg>`,
   });
@@ -146,7 +156,7 @@ function weekRow(i          , suggested         )                {
       ? h('span', { class: 'wr-status count' }, `${i.done}/${i.planned}`)
       : suggested ? h('span', { class: 'wr-status next' }, 'Next') : null;
   return h('li', null,
-    h('a', { class: `week-row${i.status === 'done' ? ' is-done' : ''}`, 'data-plate': plateOf(i.template.key), href: i.session ? `#w/${i.session.id}` : `#start/${i.template.key}` },
+    h('a', { class: `week-row${i.status === 'done' ? ' is-done' : i.status === 'in-progress' ? ' is-progress' : ''}`, 'data-plate': plateOf(i.template.key), href: i.session ? `#w/${i.session.id}` : `#start/${i.template.key}` },
       h('span', { class: 'wr-main' },
         h('strong', { class: 'wr-name' }, i.template.name),
         h('span', { class: 'muted' }, `${i.template.focus} · ${i.planned} sets`),

@@ -319,7 +319,7 @@ test('a new week starts empty on Monday', async () => {
   await phone.waitForSelector('h1');
   assert.match((await phone.locator('h1').textContent()) ?? '', /Week of Nov 9/);
   assert.equal(await phone.locator('.week-pct').textContent(), '0%');
-  assert.match((await phone.locator('.week-line').textContent()) ?? '', /^0 of 83 sets · 0 of 6 workouts · 6 days left/);
+  assert.match((await phone.locator('.week-line').textContent()) ?? '', /^0 of 83 sets0 of 6 workouts6 days left/);
   assert.match((await phone.locator('.week-pace').textContent()) ?? '', /83 sets left: about 12 a day/);
 });
 

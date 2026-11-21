@@ -53,7 +53,12 @@ export async function renderBody(root: HTMLElement): Promise<void> {
   );
 }
 
-const stat = (label: string, value: string): HTMLElement => h('div', { class: 'stat' }, h('span', { class: 'muted' }, label), h('strong', null, value));
+// Numbers stand out; their units sit small beside them ("12.5" + "lb to go"). Words get the text face.
+const stat = (label: string, value: string): HTMLElement => {
+  const m = /^([+−-]?[\d.,]+)\s*(.*)$/.exec(value);
+  return h('div', { class: 'stat' }, h('span', { class: 'muted' }, label),
+    m ? h('strong', null, m[1]!, m[2] ? h('small', null, m[2]) : null) : h('strong', { class: 'is-text' }, value));
+};
 
 function sparkline(points: Array<{ date: string; lb: number }>): HTMLElement {
   if (points.length < 2) return h('p', { class: 'muted' }, 'Your weight chart appears after two weigh-ins.');
