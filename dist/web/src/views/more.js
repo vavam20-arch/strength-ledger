@@ -6,6 +6,7 @@ import { importFile } from '../importer.js';
 import { exportFile, maybeDailyBackup } from '../backup.js';
 import { count, getLocal } from '../db.js';
 import { programSection } from './program.js';
+import { getAppearance, setAppearance,                 } from '../theme.js';
 import { shortDate } from '../dates.js';
 import { APP_VERSION } from '../version.js';
 
@@ -24,6 +25,7 @@ export async function renderMore(root             )                {
     root,
     h('header', { class: 'page-head' }, h('h1', null, 'More')),
     await programSection(() => void renderMore(root)),
+    appearanceSection(await getAppearance(), root),
     syncSection(key, st, root),
     importSection(root),
     h('section', { class: 'card' },
@@ -155,4 +157,24 @@ async function copy(text        )                {
   } catch {
     toast('Copy did not work here. Select the key and copy it manually.');
   }
+}
+
+function appearanceSection(current            , root             )              {
+  const options                              = [['auto', 'Automatic'], ['light', 'Light'], ['dark', 'Dark']];
+  return h('section', { class: 'card appearance' },
+    h('h2', null, 'Appearance'),
+    h('div', { class: 'segs wide', role: 'radiogroup', 'aria-label': 'Appearance' },
+      options.map(([mode, label]) =>
+        h('button', {
+          type: 'button',
+          role: 'radio',
+          'aria-checked': String(mode === current),
+          class: `seg wide${mode === current ? ' on' : ''}`,
+          onclick: async () => {
+            await setAppearance(mode);
+            void syncNow();
+            void renderMore(root);
+          },
+        }, label))),
+    h('p', { class: 'note' }, current === 'auto' ? 'Follows your iPhone or Mac setting, including automatic switching at sunset.' : `Always ${current}, whatever your device is set to. Your other device follows after it syncs.`));
 }

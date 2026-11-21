@@ -47,8 +47,34 @@
   --mono: ui-monospace, 'SF Mono', Menlo, monospace;
   color-scheme: light;
 }
+/* Dark tokens: used when the app's Appearance is Dark, or Automatic with the device in dark mode. */
+:root[data-theme='dark'] {
+  --floor: #0c0f13;
+  --surface: #161b21;
+  --raised: #1f252c;
+  --ink: #eceff3;
+  --muted: #98a2ae;
+  --faint: #6d7682;
+  --line: #262d36;
+  --steel: #e8ecf1;
+  --steel-ink: #11151a;
+  --steel-soft: #29303a;
+  --bar: #5d6773;
+  --push: #e0384c;
+  --pull: #3b7bea;
+  --legs: #f6c232;
+  --cardio: #2cb873;
+  --cardio-ink: #06240f;
+  --good: #4cc48a;
+  --good-soft: #12301f;
+  --warn: #e5ae50;
+  --warn-soft: #33270f;
+  --bad: #f06a60;
+  --bad-soft: #3a1b19;
+  color-scheme: dark;
+}
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme='light']) {
     --floor: #0c0f13;
     --surface: #161b21;
     --raised: #1f252c;
@@ -74,6 +100,7 @@
     color-scheme: dark;
   }
 }
+:root[data-theme='light'] { color-scheme: light; }
 [data-plate='push'] { --plate: var(--push); --plate-ink: #ffffff; }
 [data-plate='pull'] { --plate: var(--pull); --plate-ink: #ffffff; }
 [data-plate='legs'] { --plate: var(--legs); --plate-ink: #1d1704; }

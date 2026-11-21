@@ -4,6 +4,7 @@ import { openDb } from './db.js';
 import { bus } from './store.js';
 import { getStatus, startSync,                 } from './sync-client.js';
 import { maybeDailyBackup } from './backup.js';
+import { loadAppearance } from './theme.js';
 import { renderTrain } from './views/train.js';
 import { renderWorkout, startSession } from './views/workout.js';
 import { renderHistory } from './views/history.js';
@@ -75,6 +76,7 @@ function scheduleRefresh()       {
 
 async function boot()                {
   await openDb();
+  await loadAppearance();
   // Ask the browser not to clear this app's storage (granted to Home Screen apps by WebKit heuristics).
   try {
     await navigator.storage?.persist?.();
@@ -86,6 +88,8 @@ async function boot()                {
     const detail = (e               ).detail                                    ;
     // The workout screen updates itself for its own edits; refresh it only for changes from another device.
     if (route().name !== 'workout' || detail?.remote) scheduleRefresh();
+    // The other device may have changed the appearance.
+    if (detail?.remote) void loadAppearance();
   });
   let backedUp = false;
   bus.addEventListener('sync', (e) => {

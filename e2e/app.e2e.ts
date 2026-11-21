@@ -482,6 +482,29 @@ test('programs: switch to Full Body this week from More; the Mac follows after s
   await mac.getByText('Full Body × 3 · week 1 of 4').waitFor();
 });
 
+test('appearance: choose Dark on the phone; it sticks after a reload and the Mac follows', async () => {
+  await phone.emulateMedia({ colorScheme: 'light' });
+  await phone.goto(server.url + '/#more');
+  const group = phone.getByRole('radiogroup', { name: 'Appearance' });
+  assert.equal(await group.getByRole('radio', { name: 'Automatic' }).getAttribute('aria-checked'), 'true');
+  await group.getByRole('radio', { name: 'Dark' }).click();
+  const bg = () => phone.evaluate(() => getComputedStyle(document.body).backgroundColor);
+  assert.equal(await phone.evaluate(() => document.documentElement.dataset['theme']), 'dark');
+  assert.equal(await bg(), 'rgb(12, 15, 19)', 'dark floor even though the device is in light mode');
+  await phone.reload();
+  await phone.waitForSelector('h1');
+  assert.equal(await bg(), 'rgb(12, 15, 19)');
+  await shot(phone, '16-appearance-dark');
+  await syncNow(phone);
+  await syncNow(mac);
+  await mac.waitForFunction(() => document.documentElement.dataset['theme'] === 'dark');
+  // Back to Automatic: follows the device again.
+  await phone.goto(server.url + '/#more');
+  await phone.getByRole('radiogroup', { name: 'Appearance' }).getByRole('radio', { name: 'Automatic' }).click();
+  assert.equal(await phone.evaluate(() => document.documentElement.dataset['theme'] ?? null), null);
+  assert.equal(await bg(), 'rgb(237, 239, 242)');
+});
+
 test('no errors in the browser console', () => {
   assert.deepEqual(errors, []);
 });
