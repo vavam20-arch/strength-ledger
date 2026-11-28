@@ -518,3 +518,26 @@ button { cursor: pointer; }
 .ex-table td .mono { display: block; white-space: nowrap; }
 .ex-meta { display: block; font-size: 0.76rem; font-weight: 400; margin-top: 2px; }
 .ex-table tbody tr:last-child th, .ex-table tbody tr:last-child td { border-bottom: 0; }
+
+/* How to: a link under the exercise name, and the sheet with the demo video and cues. */
+.howto-link { justify-self: start; display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px 3px 6px; margin: 1px 0 0 -2px; border: 0; border-radius: 999px; background: var(--raised); color: var(--ink); font: 600 0.8rem/1.4 var(--text); }
+.howto-link .ico svg { width: 16px; height: 16px; color: var(--plate, var(--steel)); }
+.howto-link:active { transform: scale(0.97); }
+.howto { display: grid; gap: 16px; }
+.howto-video { aspect-ratio: 16 / 9; border-radius: 16px; overflow: hidden; background: #000; display: grid; }
+.howto-video iframe { width: 100%; height: 100%; border: 0; }
+.howto-poster { position: relative; display: grid; place-items: center; width: 100%; height: 100%; padding: 0; border: 0; background: #151a20; cursor: pointer; }
+.howto-poster img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.85; }
+.howto-play { position: relative; display: grid; place-items: center; width: 64px; height: 64px; border-radius: 50%; background: rgb(255 255 255 / 0.92); color: #11151a; box-shadow: 0 6px 24px rgb(0 0 0 / 0.35); }
+.howto-play svg { width: 34px; height: 34px; }
+.howto-offline { margin: auto; padding: 16px; color: #d6dbe1; text-align: center; font-size: 0.9rem; }
+.howto-credit { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; margin: -6px 2px 0; font-size: 0.82rem; color: var(--muted); }
+.howto-credit strong { color: var(--ink); font-weight: 600; }
+.howto-credit a { color: var(--ink); font-weight: 600; }
+.howto-list h3 { font-size: 0.95rem; margin-bottom: 6px; }
+.howto-list ul { margin: 0; padding-left: 1.1em; display: grid; gap: 5px; }
+.howto-list li { line-height: 1.4; }
+.howto-list li::marker { color: var(--faint); }
+.howto-list.is-avoid li::marker { color: var(--bad); }
+.howto-video.is-clip { aspect-ratio: 9 / 16; width: min(100%, 46vh * 9 / 16 + 0px); max-height: 46vh; justify-self: center; }
+.howto-credit .link-btn { border: 0; padding: 0; background: none; color: var(--ink); font: 600 0.82rem/1.45 var(--text); text-decoration: underline; cursor: pointer; }

@@ -8,6 +8,8 @@ import { longDate, relativeDay, today, weekKey } from '../dates.js';
 import { MUSCLES, slugify } from '../../../src/import/catalog.js';
                                                             
 import { syncSoon } from '../sync-client.js';
+import { howToFor } from '../../../src/program/howto.js';
+import { openHowTo } from './howto.js';
 
 const logDates = new Map                ();
 const extraRows = new Map                ();
@@ -184,6 +186,7 @@ async function slotCard(
   rerender            ,
 )                       {
   const ex = await exerciseFor(slot.exerciseId);
+  const howTo = howToFor(ex);
   const target = sess.targets?.[slot.key];
   const mine = allSets.filter((s) => (isProgram ? s.slotKey === slot.key : (s.slotKey ?? s.exerciseId) === slot.key));
   const work = mine.filter((s) => s.kind === 'work');
@@ -260,6 +263,7 @@ async function slotCard(
     h('div', { class: 'slot-head' },
       h('div', { class: 'slot-title' },
         h('h2', null, ex.name),
+        howTo ? h('button', { type: 'button', class: 'howto-link', 'aria-label': `How to do ${ex.name}`, onclick: () => openHowTo(ex.name, howTo) }, icon('play'), 'How to') : null,
         h('p', { class: 'slot-plan' },
           isProgram ? `${slot.sets} sets of ${slot.repMin}–${slot.repMax}` : 'Logged before',
           target ? h('span', { class: `chip ${toneFor(target.decision)}` }, DECISION_LABEL[target.decision] ?? target.decision) : null)),

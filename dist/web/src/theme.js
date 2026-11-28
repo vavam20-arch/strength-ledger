@@ -51,9 +51,26 @@ export async function setAppearance(mode            )                {
   await save              ('settings', { id: 'appearance', mode }                           );
 }
 
+function localMode()                         {
+  try {
+    const m = localStorage.getItem('appearance');
+    return m === 'light' || m === 'dark' ? m : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 /** Apply whatever is saved (at start, and when the other device changes it). */
 export async function loadAppearance()                {
   const before = localChoice;
-  const mode = await getAppearance();
-  if (localChoice === before) applyAppearance(mode);
+  const rec = await get                   ('settings', 'appearance');
+  if (localChoice !== before) return;
+  // No saved record but this device remembers a choice: the app was closed before the save
+  // finished. Keep the choice and save it now.
+  const local = localMode();
+  if (!rec && local) {
+    await setAppearance(local);
+    return;
+  }
+  applyAppearance(await getAppearance());
 }

@@ -281,7 +281,8 @@ test('import on the Mac: totals match the files, a second import adds nothing, a
 });
 
 test('the earlier app’s open Upper B is listed so it can be finished', async (t) => {
-  if (!existsSync(EARLIER)) return t.skip('private exports not present');
+  // Needs the import test above, which needs both exports.
+  if (!existsSync(FITBOD) || !existsSync(EARLIER)) return t.skip('private exports not present');
   await phone.goto(server.url + '/#train');
   await phone.getByText('Open from your previous plan').waitFor();
   await phone.locator('.week-row', { hasText: 'Open' }).first().click();
@@ -503,6 +504,37 @@ test('appearance: choose Dark on the phone; it sticks after a reload and the Mac
   await phone.getByRole('radiogroup', { name: 'Appearance' }).getByRole('radio', { name: 'Automatic' }).click();
   assert.equal(await phone.evaluate(() => document.documentElement.dataset['theme'] ?? null), null);
   assert.equal(await bg(), 'rgb(237, 239, 242)');
+});
+
+test('how to: the RDL card shows cues offline-ready and plays the demo inside the app on tap', async () => {
+  // Stand in for YouTube so the test never leaves this machine.
+  await phone.route(/ytimg\.com|youtube-nocookie\.com/, (r) =>
+    r.request().resourceType() === 'image'
+      ? r.fulfill({ status: 200, contentType: 'image/gif', body: Buffer.from('R0lGODlhAQABAAAAACw=', 'base64') })
+      : r.fulfill({ status: 200, contentType: 'text/html', body: '<p>player</p>' }));
+  await phone.goto(server.url + '/#train');
+  await phone.locator('.week-row', { hasText: 'Legs B' }).click();
+  await phone.waitForSelector('.slot');
+  assert.equal(await phone.locator('.slot', { hasText: 'Leverage Squat' }).locator('.howto-link').count(), 0, 'only exercises with a card get the button');
+  await phone.getByRole('button', { name: 'How to do Romanian Deadlift' }).click();
+  const dialog = phone.getByRole('dialog', { name: 'Romanian Deadlift' });
+  await dialog.waitFor();
+  assert.deepEqual(await dialog.locator('h3').allTextContents(), ['Set up', 'Each rep', 'Watch out for']);
+  assert.match((await dialog.locator('.howto-credit').textContent()) ?? '', /Quick demo by KevTheTrainer/);
+  assert.equal(await dialog.locator('iframe').count(), 0, 'nothing loads from YouTube until you tap play');
+  await phone.waitForTimeout(300);
+  await shot(phone, '17-howto');
+  // The quick demo: a Short that starts muted and loops.
+  await dialog.getByRole('button', { name: /Play the quick demo/ }).click();
+  assert.match((await dialog.locator('iframe').getAttribute('src')) ?? '', /\/embed\/OVd1pq1cAvE\?autoplay=1&mute=1&loop=1&playlist=OVd1pq1cAvE&playsinline=1/);
+  // The full tutorial is one tap away.
+  await dialog.getByRole('button', { name: 'Watch the full tutorial' }).click();
+  assert.match((await dialog.locator('iframe').getAttribute('src')) ?? '', /^https:\/\/www\.youtube-nocookie\.com\/embed\/_oyxCn2iSjU\?autoplay=1&playsinline=1/);
+  assert.match((await dialog.locator('.howto-credit').textContent()) ?? '', /Jeff Nippard.*Back to the quick demo.*Open in YouTube/);
+  await dialog.getByRole('button', { name: 'Done' }).click();
+  await phone.waitForFunction(() => !document.querySelector('.howto iframe'), null, { timeout: 2000 });
+  assert.ok(await noSideScroll(phone));
+  await phone.unroute(/ytimg\.com|youtube-nocookie\.com/);
 });
 
 test('no errors in the browser console', () => {

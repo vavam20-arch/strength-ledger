@@ -51,9 +51,26 @@ export async function setAppearance(mode: Appearance): Promise<void> {
   await save<SyncedRecord>('settings', { id: 'appearance', mode } as unknown as SyncedRecord);
 }
 
+function localMode(): Appearance | undefined {
+  try {
+    const m = localStorage.getItem('appearance');
+    return m === 'light' || m === 'dark' ? m : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 /** Apply whatever is saved (at start, and when the other device changes it). */
 export async function loadAppearance(): Promise<void> {
   const before = localChoice;
-  const mode = await getAppearance();
-  if (localChoice === before) applyAppearance(mode);
+  const rec = await get<{ mode?: string }>('settings', 'appearance');
+  if (localChoice !== before) return;
+  // No saved record but this device remembers a choice: the app was closed before the save
+  // finished. Keep the choice and save it now.
+  const local = localMode();
+  if (!rec && local) {
+    await setAppearance(local);
+    return;
+  }
+  applyAppearance(await getAppearance());
 }

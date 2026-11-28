@@ -31,6 +31,7 @@ export const MUSCLES                                         = {
   'Cable Row': { Back: 1, Biceps: 0.5, 'Rear delts': 0.5 },
   'Dumbbell Row': { Back: 1, Biceps: 0.5, 'Rear delts': 0.5 },
   'Barbell Shrug': { Traps: 1 },
+  'Cable Upright Row': { 'Side delts': 1, Traps: 0.5 },
   'Hammer Curl': { Biceps: 1 },
   'Dumbbell Bicep Curl': { Biceps: 1 },
   'Cable Curl': { Biceps: 1 },
@@ -72,6 +73,7 @@ export const MUSCLES                                         = {
   'Incline Dumbbell Curl': { Biceps: 1 },
   'Dumbbell Romanian Deadlift': { Hamstrings: 1, Glutes: 0.5 },
   'Barbell Hip Thrust': { Glutes: 1, Hamstrings: 0.5 },
+  'Trap Bar Deadlift': { Quads: 1, Glutes: 1, Hamstrings: 0.5, Traps: 0.5 },
 };
 
 /** Exercises done for reps with no added load. */
@@ -119,7 +121,7 @@ const STANDARD_STEPS = [2.5, 5, 7.5, 10, 15, 20, 25];
  */
 export function inferEquipment(name        , loadsUsed          )                                                        {
   const n = name.toLowerCase();
-  if (/dumbbell|\bdb\b/.test(n) || /barbell/.test(n)) return { equipment: { step: 5 }, how: 'default' };
+  if (/dumbbell|\bdb\b/.test(n) || /barbell|trap bar|hex bar/.test(n)) return { equipment: { step: 5 }, how: 'default' };
   const distinct = [...new Set(loadsUsed.filter((w) => w > 0))].sort((a, b) => a - b);
   let gap = Infinity;
   for (let i = 1; i < distinct.length; i++) gap = Math.min(gap, distinct[i]  - distinct[i - 1] );
