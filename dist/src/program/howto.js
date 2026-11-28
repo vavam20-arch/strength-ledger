@@ -2,13 +2,21 @@
 // between sets and work offline; the video is a demo on YouTube, loaded only when tapped.
 
 import { HISTORY_ALIASES, slugify } from '../import/catalog.js';
+import { MORE_HOW_TO } from './howto-more.js';
+
+                        
+             
+                
+                  
+                 
+ 
 
                         
                   
                  
                   
-                           
-                                                                        
+                                                                                                
+                
                                                                                                   
                                          
  
@@ -215,6 +223,8 @@ export const HOW_TO                        = {
   },
 };
 
+Object.assign(HOW_TO, MORE_HOW_TO);
+
 const BY_ID = new Map               ();
 for (const [name, how] of Object.entries(HOW_TO)) {
   BY_ID.set(slugify(name), how);
@@ -227,7 +237,7 @@ export function howToFor(ex                               )                    {
 }
 
 /** The privacy-enhanced YouTube player, started on tap. */
-export function embedUrl(v                )         {
+export function embedUrl(v       )         {
   const q = new URLSearchParams({ autoplay: '1', playsinline: '1', rel: '0', modestbranding: '1' });
   if (v.start) q.set('start', String(v.start));
   return `https://www.youtube-nocookie.com/embed/${v.id}?${q}`;
@@ -239,6 +249,6 @@ export function clipUrl(c                            )         {
   return `https://www.youtube-nocookie.com/embed/${c.id}?${q}`;
 }
 
-export function watchUrl(v                )         {
+export function watchUrl(v                             )         {
   return `https://www.youtube.com/watch?v=${v.id}${v.start ? `&t=${v.start}s` : ''}`;
 }

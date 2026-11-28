@@ -25,6 +25,7 @@ export function openHowTo(name        , how       )       {
   };
 
   const showFull = (autoplay         ) => {
+    if (!full) return;
     frame.classList.remove('is-clip');
     if (autoplay) {
       if (!offline()) frame.replaceChildren(player(embedUrl(full), full.title));
@@ -45,10 +46,12 @@ export function openHowTo(name        , how       )       {
     } else {
       frame.replaceChildren(poster(clip.id, `Play the quick demo of ${name}`, () => showClip(true)));
     }
-    credit.replaceChildren(
+    credit.replaceChildren(...[
       h('span', null, h('strong', null, 'Quick demo'), ` by ${clip.channel}. Loops silently; tap it for sound.`),
-      h('button', { type: 'button', class: 'link-btn', onclick: () => showFull(true) }, 'Watch the full tutorial'),
-    );
+      full
+        ? h('button', { type: 'button', class: 'link-btn', onclick: () => showFull(true) }, 'Watch the full tutorial')
+        : h('a', { href: watchUrl(clip), target: '_blank', rel: 'noopener' }, 'Open in YouTube'),
+    ]);
   };
   if (clip) showClip(false);
   else showFull(false);

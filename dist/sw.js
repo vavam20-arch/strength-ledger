@@ -1,6 +1,6 @@
 // Strength Ledger service worker: keeps the app usable with no signal.
 // The build fills in the version and the offline file list.
-const VERSION = '7efb60e751';
+const VERSION = '6fd341c480';
 const CACHE = `ledger-${VERSION}`;
 const FILES = [
  "./",
@@ -20,6 +20,7 @@ const FILES = [
  "./src/import/xlsx.js",
  "./src/model.js",
  "./src/program/block1.js",
+ "./src/program/howto-more.js",
  "./src/program/howto.js",
  "./src/program/programs.js",
  "./src/sync/hlc.js",

@@ -6,7 +6,8 @@ import { MUSCLES, slugify } from '../src/import/catalog.ts';
 test('every How to card is for an exercise in the library and is complete', () => {
   for (const [name, how] of Object.entries(HOW_TO)) {
     assert.ok(MUSCLES[name], `${name} is in the catalog`);
-    assert.match(how.video.id, /^[A-Za-z0-9_-]{11}$/, `${name} has a YouTube id`);
+    assert.ok(how.video || how.clip, `${name} has a clip or a video`);
+    for (const id of [how.video?.id, how.clip?.id]) if (id) assert.match(id, /^[A-Za-z0-9_-]{11}$/, `${name} has a YouTube id`);
     assert.ok(how.setup.length && how.cues.length && how.avoid.length, `${name} has cues`);
   }
 });
@@ -36,4 +37,15 @@ test('new library entries: cable upright row and trap bar deadlift', async () =>
   assert.equal(inferEquipment('Trap Bar Deadlift', []).equipment.step, 5, 'free weight: 2.5 lb a side');
   assert.equal(inferLoadType('Trap Bar Deadlift', false), 'external');
   assert.ok(howToFor({ name: 'Trap Bar Deadlift' })?.clip);
+});
+
+test('every exercise in every program has a How-to card', async () => {
+  const { PROGRAMS } = await import('../src/program/programs.ts');
+  const byId = new Map(Object.keys(MUSCLES).map((n) => [slugify(n), n]));
+  const missing = new Set<string>();
+  for (const p of PROGRAMS) for (const w of p.workouts) for (const s of w.slots) {
+    const name = byId.get(s.exerciseId) ?? s.exerciseId;
+    if (!howToFor({ id: s.exerciseId, name })) missing.add(name);
+  }
+  assert.deepEqual([...missing], []);
 });

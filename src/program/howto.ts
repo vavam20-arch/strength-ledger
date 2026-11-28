@@ -2,13 +2,21 @@
 // between sets and work offline; the video is a demo on YouTube, loaded only when tapped.
 
 import { HISTORY_ALIASES, slugify } from '../import/catalog.ts';
+import { MORE_HOW_TO } from './howto-more.ts';
+
+export interface Video {
+  id: string;
+  title: string;
+  channel: string;
+  start?: number;
+}
 
 export interface HowTo {
   setup: string[];
   cues: string[];
   avoid: string[];
-  /** The full tutorial. */
-  video: { id: string; title: string; channel: string; start?: number };
+  /** The full tutorial, when there's one worth watching. A card has a clip, a video or both. */
+  video?: Video;
   /** A short vertical demo (a YouTube Short) that loops silently: the quick look between sets. */
   clip?: { id: string; channel: string };
 }
@@ -215,6 +223,8 @@ export const HOW_TO: Record<string, HowTo> = {
   },
 };
 
+Object.assign(HOW_TO, MORE_HOW_TO);
+
 const BY_ID = new Map<string, HowTo>();
 for (const [name, how] of Object.entries(HOW_TO)) {
   BY_ID.set(slugify(name), how);
@@ -227,7 +237,7 @@ export function howToFor(ex: { id?: string; name: string }): HowTo | undefined {
 }
 
 /** The privacy-enhanced YouTube player, started on tap. */
-export function embedUrl(v: HowTo['video']): string {
+export function embedUrl(v: Video): string {
   const q = new URLSearchParams({ autoplay: '1', playsinline: '1', rel: '0', modestbranding: '1' });
   if (v.start) q.set('start', String(v.start));
   return `https://www.youtube-nocookie.com/embed/${v.id}?${q}`;
@@ -239,6 +249,6 @@ export function clipUrl(c: NonNullable<HowTo['clip']>): string {
   return `https://www.youtube-nocookie.com/embed/${c.id}?${q}`;
 }
 
-export function watchUrl(v: HowTo['video']): string {
+export function watchUrl(v: Pick<Video, 'id' | 'start'>): string {
   return `https://www.youtube.com/watch?v=${v.id}${v.start ? `&t=${v.start}s` : ''}`;
 }

@@ -515,7 +515,7 @@ test('how to: the RDL card shows cues offline-ready and plays the demo inside th
   await phone.goto(server.url + '/#train');
   await phone.locator('.week-row', { hasText: 'Legs B' }).click();
   await phone.waitForSelector('.slot');
-  assert.equal(await phone.locator('.slot', { hasText: 'Leverage Squat' }).locator('.howto-link').count(), 0, 'only exercises with a card get the button');
+  assert.equal(await phone.locator('.slot .howto-link').count(), await phone.locator('.slot').count(), 'every exercise has a How to button');
   await phone.getByRole('button', { name: 'How to do Romanian Deadlift' }).click();
   const dialog = phone.getByRole('dialog', { name: 'Romanian Deadlift' });
   await dialog.waitFor();
